@@ -1,0 +1,42 @@
+services:
+  db:
+    image: postgres:15
+    container_name: bizadvisor_db
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_USER: ${DB_USER:-admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-admin}
+      POSTGRES_DB: ${DB_NAME:-bizadvisor}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./migrations:/migrations
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-admin} -d ${DB_NAME:-bizadvisor}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bizadvisor_api
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - PYTHONDONTWRITEBYTECODE=1  # не создавать .pyc файлы
+      - PYTHONUNBUFFERED=1         # не буферизировать вывод в логи
+    volumes:
+      - ./uploads:/app/uploads
+      - ./app:/app/app
+    depends_on:
+      db:
+        condition: service_healthy
+    command: >
+      sh -c "mkdir -p /app/uploads &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+volumes:
+  postgres_data:
