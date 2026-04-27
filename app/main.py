@@ -100,6 +100,61 @@ async def startup_event():
         logger.info("Column financial_events.is_recurring ensured")
     except Exception as e:
         logger.warning(f"is_recurring migration skipped: {e}")
+
+    # 1. Автоматическая очистка дубликатов
+    try:
+        from sqlalchemy.orm import Session as _Session
+        from app.models.document import Document as _Doc
+        from app.models.financial_event import FinancialEvent as _FE
+        from collections import defaultdict
+
+        with _Session(engine) as db:
+            docs = db.query(_Doc).order_by(_Doc.id).all()
+            groups: dict = defaultdict(list)
+            for doc in docs:
+                key = doc.file_hash if doc.file_hash else (doc.filename + str(doc.owner_id))
+                groups[key].append(doc)
+
+            removed = 0
+            for group in groups.values():
+                if len(group) <= 1:
+                    continue
+                for doc in sorted(group, key=lambda d: d.id)[:-1]:
+                    db.query(_FE).filter(_FE.document_id == doc.id).delete()
+                    if doc.file_path and __import__("os").path.exists(doc.file_path):
+                        __import__("os").remove(doc.file_path)
+                    db.delete(doc)
+                    removed += 1
+            db.commit()
+            if removed:
+                logger.info(f"Auto-dedup: removed {removed} duplicate document(s)")
+    except Exception as e:
+        logger.warning(f"Auto-dedup skipped: {e}")
+
+    # 2. Пересчёт FinancialEvents из сохранённого текста (исправляет старые неверные категории)
+    try:
+        from sqlalchemy.orm import Session as _Session
+        from app.models.document import Document as _Doc
+        from app.services.document_processor import _extract_financial_data
+        from app.services.event_builder import build_financial_event
+
+        with _Session(engine) as db:
+            analyzed = db.query(_Doc).filter(_Doc.status == "analyzed").all()
+            refreshed = 0
+            for doc in analyzed:
+                result = doc.extraction_result or {}
+                text = result.get("text", "")
+                if not text:
+                    continue
+                events = _extract_financial_data(text)
+                if events:
+                    build_financial_event(document=doc, db=db, events=events)
+                    refreshed += 1
+            if refreshed:
+                logger.info(f"Refreshed FinancialEvents for {refreshed} document(s)")
+    except Exception as e:
+        logger.warning(f"Event refresh skipped: {e}")
+
     logger.info("Application startup complete.")
 
 # 5. Подключение роутеров
