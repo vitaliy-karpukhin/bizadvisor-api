@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 # 1. Инициализация FastAPI
 app = FastAPI(
-    title="BizAdvisor API",
+    title="TrueVision API",
     version="1.0.0",
 )
 
@@ -116,7 +116,7 @@ def custom_openapi():
     if app.openapi_schema:
         return app.openapi_schema
     schema = get_openapi(
-        title="BizAdvisor API",
+        title="TrueVision API",
         version="1.0.0",
         routes=app.routes,
     )

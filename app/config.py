@@ -6,7 +6,7 @@ load_dotenv()
 # Настройки БД
 DB_USER = os.getenv("DB_USER", "admin")
 DB_PASSWORD = os.getenv("DB_PASSWORD", "admin")
-DB_NAME = os.getenv("DB_NAME", "bizadvisor")
+DB_NAME = os.getenv("DB_NAME", "truevision")
 DB_HOST = os.getenv("DB_HOST", "db")
 DB_PORT = os.getenv("DB_PORT", "5432")
 

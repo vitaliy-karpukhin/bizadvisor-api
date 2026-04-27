@@ -27,7 +27,7 @@ def get_url():
     password = os.getenv("DB_PASSWORD", "admin")
     host = os.getenv("DB_HOST", "db")
     port = os.getenv("DB_PORT", "5432")
-    db = os.getenv("DB_NAME", "bizadvisor")
+    db = os.getenv("DB_NAME", "truevision")
     return f"postgresql://{user}:{password}@{host}:{port}/{db}"
 
 def run_migrations_online() -> None:

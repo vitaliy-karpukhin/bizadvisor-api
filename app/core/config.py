@@ -5,7 +5,7 @@ from pydantic import ComputedField
 class Settings(BaseSettings):
     DB_USER: str = "admin"
     DB_PASSWORD: str = "admin"
-    DB_NAME: str = "bizadvisor"
+    DB_NAME: str = "truevision"
     DB_HOST: str = "db"
     DB_PORT: int = 5432
 

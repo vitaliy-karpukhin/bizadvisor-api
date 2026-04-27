@@ -3,18 +3,18 @@ version: '3.8'
 services:
   db:
     image: postgres:15
-    container_name: bizadvisor_db
+    container_name: truevision_db
     ports:
       - "5433:5432"
     environment:
       POSTGRES_USER: ${DB_USER:-admin}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-admin}
-      POSTGRES_DB: ${DB_NAME:-bizadvisor}
+      POSTGRES_DB: ${DB_NAME:-truevision}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./migrations:/migrations
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-admin} -d ${DB_NAME:-bizadvisor}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-admin} -d ${DB_NAME:-truevision}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -23,7 +23,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: bizadvisor_api
+    container_name: truevision_api
     ports:
       - "8000:8000"
     env_file:
@@ -32,12 +32,11 @@ services:
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
     volumes:
-      - .:/app              # Пробрасываем корень проекта (код + папка uploads)
-      - /app/venv           # Изолируем папку venv контейнера от маковской (важно для библиотек)
+      - .:/app
+      - /app/venv
     depends_on:
       db:
         condition: service_healthy
-    # Добавляем --reload, чтобы FastAPI подхватывал изменения кода мгновенно
     command: >
       sh -c "mkdir -p /app/uploads &&
              uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
