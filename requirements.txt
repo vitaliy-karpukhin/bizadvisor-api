@@ -4,8 +4,8 @@ sqlalchemy>=2.0.48,<2.1
 psycopg2-binary>=2.9.7,<3
 pydantic>=2.3,<2.4
 python-jose[cryptography]>=3.3,<3.4
-passlib[bcrypt]>=1.7.4,<1.8
-bcrypt>=4.0,<5
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
 python-dotenv>=1.0,<1.1
 python-multipart>=0.0.7
 werkzeug==3.0.1
@@ -22,3 +22,4 @@ httpx>=0.24.1,<0.25
 
 # Для миграций БД
 alembic>=1.12.0
+python-multipart

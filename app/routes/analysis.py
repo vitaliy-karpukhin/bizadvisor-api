@@ -55,7 +55,7 @@ Antworte NUR mit einem JSON-Objekt in diesem Format:
 def analyze_document(
     doc_id: int,
     authorization: Optional[str] = Header(default=None),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
 ):
     user = _get_user_from_token(authorization, db)
 
@@ -83,22 +83,23 @@ def analyze_document(
                     "content": [
                         {
                             "type": "text",
-                            "text": f"Analysiere dieses Dokument: {doc.filename}"
+                            "text": f"Analysiere dieses Dokument: {doc.filename}",
                         },
                         {
                             "type": "image_url",
                             "image_url": {
                                 "url": f"data:application/pdf;base64,{file_b64}"
-                            }
-                        }
-                    ]
-                }
+                            },
+                        },
+                    ],
+                },
             ],
             max_tokens=1000,
-            response_format={"type": "json_object"}
+            response_format={"type": "json_object"},
         )
         result = response.choices[0].message.content
         import json
+
         extracted = json.loads(result)
     except Exception as e:
         raise HTTPException(500, f"AI analysis failed: {str(e)}")
@@ -109,6 +110,7 @@ def analyze_document(
 
     # Сохраняем в FinancialEvent
     from datetime import datetime
+
     event = FinancialEvent(
         user_id=user["id"],
         document_id=doc.id,
@@ -123,9 +125,4 @@ def analyze_document(
     db.commit()
     db.refresh(doc)
 
-    return {
-        "ok": True,
-        "doc_id": doc.id,
-        "status": "analyzed",
-        "result": extracted
-    }
+    return {"ok": True, "doc_id": doc.id, "status": "analyzed", "result": extracted}

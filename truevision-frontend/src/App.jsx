@@ -1,0 +1,125 @@
+import React, { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { LangProvider } from './context/LangContext';
+import MainLayout from './layouts/MainLayout';
+import ProtectedRoute from './components/ProtectedRoute';
+import axios from 'axios';
+
+// Импорт страниц
+import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
+import Profile from './pages/Profile';
+import PathSelection from './pages/PathSelection';
+import Onboarding from './pages/Onboarding';
+import Analytics from './pages/Analytics';
+import Income from './pages/Income';
+import AIChat from './pages/AIChat';
+import Calendar from './pages/Calendar';
+import Documents from './pages/Documents';
+import Expenses from './pages/Expenses';
+import Transactions from './pages/Transactions';
+
+// 1. Проверка живой сессии (если удалили юзера из БД)
+const AuthWatcher = ({ children }) => {
+  useEffect(() => {
+    const checkUserInDB = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      try {
+        await axios.get('http://localhost:8000/auth/me', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      } catch (err) {
+        if (err.response?.status === 401 || err.response?.status === 404) {
+          localStorage.clear();
+          window.location.href = '/login';
+        }
+      }
+    };
+    checkUserInDB();
+  }, []);
+
+  return children;
+};
+
+// 2. Умный редирект для страницы логина
+const PublicRoute = ({ children }) => {
+  const token = localStorage.getItem('token');
+  const userPath = localStorage.getItem('user_path');
+  const isOnboarded = localStorage.getItem('is_onboarded') === 'true';
+
+  if (token) {
+    if (!userPath) return <Navigate to="/path-selection" replace />;
+    if (!isOnboarded) return <Navigate to="/onboarding" replace />;
+    return <Navigate to="/dashboard" replace />;
+  }
+  return children;
+};
+
+// 3. Компонент для защиты основной части приложения
+const DashboardGuard = ({ children }) => {
+  const userPath = localStorage.getItem('user_path');
+  const isOnboarded = localStorage.getItem('is_onboarded') === 'true';
+
+  if (!userPath) return <Navigate to="/path-selection" replace />;
+  if (!isOnboarded) return <Navigate to="/onboarding" replace />;
+
+  return children;
+};
+
+export default function App() {
+  return (
+    <LangProvider>
+      <BrowserRouter>
+        <AuthWatcher>
+          <Routes>
+            {/* ЛОГИН */}
+            <Route path="/login" element={
+              <PublicRoute>
+                <Login />
+              </PublicRoute>
+            } />
+
+            {/* ВЫБОР ПУТИ */}
+            <Route path="/path-selection" element={
+              <ProtectedRoute requirePath={false}>
+                <PathSelection />
+              </ProtectedRoute>
+            } />
+
+            {/* ОНБОРДИНГ */}
+            <Route path="/onboarding" element={
+              <ProtectedRoute requirePath={true}>
+                <Onboarding />
+              </ProtectedRoute>
+            } />
+
+            {/* ГЛАВНОЕ ПРИЛОЖЕНИЕ (LAYOUT) */}
+            <Route path="/" element={
+              <ProtectedRoute requirePath={true}>
+                <DashboardGuard>
+                  <MainLayout />
+                </DashboardGuard>
+              </ProtectedRoute>
+            }>
+              <Route index element={<Navigate to="/dashboard" replace />} />
+              <Route path="dashboard" element={<Dashboard />} />
+              <Route path="analytics" element={<Analytics />} />
+              <Route path="/ai-chat" element={<AIChat />} />
+              <Route path="income" element={<Income />} />
+              <Route path="expenses" element={<Expenses />} />
+              <Route path="transactions" element={<Transactions />} />
+              <Route path="documents" element={<Documents />} />
+              <Route path="/calendar" element={<Calendar />} />
+              <Route path="profile" element={<Profile />} />
+            </Route>
+
+            {/* ВЕРНЫЙ РЕДИРЕКТ ДЛЯ ВСЕГО ОСТАЛЬНОГО */}
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          </Routes>
+        </AuthWatcher>
+      </BrowserRouter>
+    </LangProvider>
+  );
+}

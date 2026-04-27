@@ -7,13 +7,14 @@ Document processing pipeline:
 """
 
 import logging
+import os
 import re
 from sqlalchemy.orm import Session
 from app.models.document import Document
 from app.services.event_builder import build_financial_event
 from app.services.ai import get_mock_recommendations
 
-logging.basicConfig(level=logging.INFO, format='%(levelname)s:%(name)s:%(message)s')
+logging.basicConfig(level=logging.INFO, format="%(levelname)s:%(name)s:%(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -22,7 +23,9 @@ def process_document(document: Document, db: Session):
     Полный пайплайн обработки документа.
     """
 
-    logger.info(f"ENTER process_document for document_id={document.id}, filename={document.filename}")
+    logger.info(
+        f"ENTER process_document for document_id={document.id}, filename={document.filename}"
+    )
 
     try:
         logger.info(f"Start processing: {document.file_path}")
@@ -35,19 +38,21 @@ def process_document(document: Document, db: Session):
         language = _detect_language(extracted_text)
         logger.info(f"Detected language: {language}")
 
-        # Шаг 3: Извлечение финансовых данных
-        financial_data = _extract_financial_data(extracted_text, language)
-        logger.info(f"Extracted: amount={financial_data.get('amount')}, category={financial_data.get('category')}")
+        # Шаг 3: Извлечение финансовых данных (список событий)
+        financial_events = _extract_financial_data(extracted_text, language)
+        logger.info(f"Extracted {len(financial_events)} financial event(s)")
 
-        # Шаг 4: Сохраняем результат в документ
+        # Шаг 4: Сохраняем результат в extraction_result для отображения
+        meta  = _extract_meta(extracted_text)
+        first = financial_events[0] if financial_events else {}
         document.extraction_result = {
-            "text": extracted_text[:2000],
-            "language": language,
-            "amount": financial_data["amount"],
-            "category": financial_data["category"],
-            "vendor": financial_data["vendor"],
-            "currency": financial_data["currency"],
-            "confidence": 0.85
+            "language":     language,
+            "events_count": len(financial_events),
+            "amount":       first.get("amount", 0),
+            "category":     first.get("category", "other"),
+            "vendor":       first.get("vendor") or meta.get("firma"),
+            "currency":     first.get("currency", "EUR"),
+            **meta,
         }
         document.status = "processed"
         document.language = language
@@ -58,23 +63,18 @@ def process_document(document: Document, db: Session):
 
         logger.info(f"Document {document.id} saved with extraction_result")
 
-        # Шаг 5: Генерация рекомендаций
-        recommendations = get_mock_recommendations(document.owner_id)
-        logger.info(f"Generated {len(recommendations)} recommendations")
-
-        # Шаг 6: Создание финансовых событий
-        build_financial_event(
-            document=document,
-            db=db,
-            recommendations=recommendations
-        )
+        # Шаг 5: Создание финансовых событий
+        build_financial_event(document=document, db=db, events=financial_events)
 
         logger.info(f"Financial events created for document {document.id}")
         logger.info(f"EXIT process_document SUCCESS for document_id={document.id}")
 
     except Exception as e:
         db.rollback()
-        logger.error(f"CRITICAL ERROR in process_document: {type(e).__name__}: {str(e)}", exc_info=True)
+        logger.error(
+            f"CRITICAL ERROR in process_document: {type(e).__name__}: {str(e)}",
+            exc_info=True,
+        )
         document.status = "processing_failed"
         document.extraction_result = {"error": str(e)}
         db.add(document)
@@ -84,38 +84,43 @@ def process_document(document: Document, db: Session):
 
 def _extract_text_from_file(file_path: str) -> str:
     """
-    Извлекает текст из файла.
+    Извлекает текст из файла (PDF или изображение).
     """
-    try:
-        return """
-        RECHNUNG
-        Rechnung Nr: 2024-001234
-        Datum: 15.03.2024
-
-        Von: Test Vendor GmbH
-        Musterstraße 123
-        12345 Berlin
-
-        An: Your Company
-
-        Position                    Menge    Preis      Gesamt
-        ------------------------------------------------------
-        Beratungsservices            10h    120,00€   1.200,00€
-        Software-Lizenz               1     450,00€     450,00€
-
-        Zwischensumme:                        1.650,00€
-        MwSt (19%):                             313,50€
-        ------------------------------------------------------
-        GESAMTBETRAG:                         1.963,50€
-
-        Zahlungseingang bis: 30.03.2024
-        """
-
-    except FileNotFoundError:
+    if not file_path or not os.path.exists(file_path):
         logger.error(f"File not found: {file_path}")
         return ""
+
+    ext = file_path.rsplit(".", 1)[-1].lower()
+
+    try:
+        if ext == "pdf":
+            import pdfplumber
+            text = ""
+            with pdfplumber.open(file_path) as pdf:
+                for page in pdf.pages:
+                    page_text = page.extract_text()
+                    if page_text:
+                        text += page_text + "\n"
+            logger.info(f"PDF extracted: {len(text)} chars from {file_path}")
+            return text.strip()
+
+        if ext in ("jpg", "jpeg", "png"):
+            try:
+                import pytesseract
+                from PIL import Image
+                img = Image.open(file_path)
+                text = pytesseract.image_to_string(img, lang="deu+eng")
+                logger.info(f"Image OCR extracted: {len(text)} chars")
+                return text.strip()
+            except ImportError:
+                logger.warning("pytesseract/PIL not installed — OCR unavailable for images")
+                return ""
+
+        logger.warning(f"Unsupported file type: {ext}")
+        return ""
+
     except Exception as e:
-        logger.error(f"Error extracting text: {e}")
+        logger.error(f"Error extracting text from {file_path}: {e}")
         return ""
 
 
@@ -128,8 +133,26 @@ def _detect_language(text: str) -> str:
 
     text_lower = text.lower()
 
-    german_keywords = ["rechnung", "betrag", "mwst", "gesamt", "euro", "datum", "von", "an"]
-    english_keywords = ["invoice", "amount", "vat", "total", "eur", "date", "from", "to"]
+    german_keywords = [
+        "rechnung",
+        "betrag",
+        "mwst",
+        "gesamt",
+        "euro",
+        "datum",
+        "von",
+        "an",
+    ]
+    english_keywords = [
+        "invoice",
+        "amount",
+        "vat",
+        "total",
+        "eur",
+        "date",
+        "from",
+        "to",
+    ]
 
     de_count = sum(1 for kw in german_keywords if kw in text_lower)
     en_count = sum(1 for kw in english_keywords if kw in text_lower)
@@ -142,64 +165,203 @@ def _detect_language(text: str) -> str:
         return "unknown"
 
 
-def _extract_financial_data(text: str, language: str = "de") -> dict:
-    """
-    Извлекает финансовые данные из текста.
-    """
-    result = {
-        "amount": 0.0,
-        "category": "other",
-        "vendor": None,
-        "currency": "EUR"
-    }
+def _parse_amount(s: str) -> float:
+    """Парсит суммы в разных форматах: '1.963,50', '5000', '7.000 EUR'."""
+    s = s.strip().replace("\xa0", "")
+    if "," in s and "." in s:
+        # Немецкий формат: 1.963,50
+        s = s.replace(".", "").replace(",", ".")
+    elif "," in s:
+        # Десятичная запятая: 5000,50
+        s = s.replace(",", ".")
+    else:
+        # Точка как разделитель тысяч: 5.000 → 5000
+        parts = s.split(".")
+        if len(parts) == 2 and len(parts[1]) == 3:
+            s = s.replace(".", "")
+        # иначе точка как десятичный разделитель — оставляем
+    try:
+        return float(s)
+    except ValueError:
+        return 0.0
 
+
+def _find_amount(text: str, patterns: list) -> float:
+    """Ищет первую подходящую сумму по списку паттернов."""
+    for pattern in patterns:
+        m = re.search(pattern, text, re.IGNORECASE)
+        if m:
+            amt = _parse_amount(m.group(1))
+            if amt > 0:
+                return amt
+    return 0.0
+
+
+def _find_vendor(text: str) -> str | None:
+    VENDOR_RE = [
+        r"Verkäufer[:\s]+([A-Za-zÄÖÜäöüß0-9\s&\.\-]+?)(?:\n|•|$)",
+        r"Lieferant[:\s]+([A-Za-zÄÖÜäöüß0-9\s&\.\-]+?)(?:\n|•|$)",
+        r"Vendor[:\s]+([A-Za-zÄÖÜäöüß0-9\s&\.\-]+?)(?:\n|•|$)",
+        r"Von[:\s]+([A-Za-zÄÖÜäöüß0-9\s&\.\-]+?)(?:\n|•|$)",
+        r"Auftragnehmer[:\s]+([A-Za-zÄÖÜäöüß0-9\s&\.\-]+?)(?:\n|•|$)",
+        r"Anbieter[:\s]+([A-Za-zÄÖÜäöüß0-9\s&\.\-]+?)(?:\n|•|$)",
+    ]
+    for pattern in VENDOR_RE:
+        m = re.search(pattern, text, re.IGNORECASE)
+        if m:
+            v = m.group(1).strip().rstrip(".")
+            if v and len(v) < 100:
+                return v
+    return None
+
+
+def _extract_meta(text: str) -> dict:
+    """Извлекает реквизиты документа: IBAN, фирма, номер счёта, дата, получатель."""
+    meta = {}
+
+    # Компания-отправитель — первая строка с GmbH/AG/KG и т.д.
+    company_m = re.search(
+        r"^([A-Za-zÄÖÜäöüß0-9\s\-&\.]+(?:GmbH|AG|KG|e\.K\.|GbR|OHG|UG|KGaA|Ltd|LLC|Inc))",
+        text, re.IGNORECASE | re.MULTILINE
+    )
+    if company_m:
+        meta["firma"] = company_m.group(1).strip()
+
+    # IBAN
+    iban_m = re.search(r"IBAN[:\s]+([A-Z]{2}\d{2}[\d\s]{13,30})", text, re.IGNORECASE)
+    if iban_m:
+        meta["iban"] = iban_m.group(1).strip().replace(" ", " ")
+
+    # BIC / SWIFT
+    bic_m = re.search(r"BIC[:\s]+([A-Z]{6}[A-Z0-9]{2,5})", text, re.IGNORECASE)
+    if bic_m:
+        meta["bic"] = bic_m.group(1).strip()
+
+    # Номер счёта / Rechnung Nr
+    inv_m = re.search(
+        r"(?:Rechnung(?:s?nummer)?\.?\s*Nr\.?|Invoice\s*(?:No\.?|Nr\.?|#))[:\s]*([\w\-\/]+)",
+        text, re.IGNORECASE
+    )
+    if inv_m:
+        meta["rechnung_nr"] = inv_m.group(1).strip()
+
+    # Дата счёта
+    date_m = re.search(r"Datum[:\s]+([\d]{1,2}[./][\d]{1,2}[./][\d]{2,4})", text, re.IGNORECASE)
+    if date_m:
+        meta["datum"] = date_m.group(1).strip()
+
+    # Срок оплаты
+    due_m = re.search(
+        r"(?:Zahlungsziel|Fällig(?:keit)?(?:\s*am)?|due(?:\s*date)?|pay(?:ment)?\s*by)[:\s]+([\d]{1,2}[./][\d]{1,2}[./][\d]{2,4})",
+        text, re.IGNORECASE
+    )
+    if due_m:
+        meta["faellig_am"] = due_m.group(1).strip()
+
+    # Получатель
+    emp_m = re.search(r"Empfänger[:\s]+([A-Za-zÄÖÜäöüß0-9\s&\.\-]+?)(?:\n|$)", text, re.IGNORECASE)
+    if emp_m:
+        meta["empfaenger"] = emp_m.group(1).strip()
+
+    # Нетто-сумма
+    netto_m = re.search(r"Nettobetrag[:\s]*([\d][0-9\.\,]+)\s*(?:€|EUR)?", text, re.IGNORECASE)
+    if netto_m:
+        meta["netto"] = _parse_amount(netto_m.group(1))
+
+    # MwSt / НДС (информационно)
+    mwst_m = re.search(r"(?:MwSt|VAT|USt)[^:\n]*?[:\s]+([\d][0-9\.\,]+)\s*(?:€|EUR)?", text, re.IGNORECASE)
+    if mwst_m:
+        meta["mwst"] = _parse_amount(mwst_m.group(1))
+
+    return meta
+
+
+def _detect_currency(text: str) -> str:
+    if "USD" in text: return "USD"
+    if "CHF" in text: return "CHF"
+    if "RUB" in text or "руб" in text.lower(): return "RUB"
+    return "EUR"
+
+
+def _extract_financial_data(text: str, language: str = "de") -> list:
+    """
+    Возвращает список финансовых событий из документа.
+    Финансовый отчёт может содержать и доходы, и расходы одновременно.
+    """
     if not text:
-        return result
+        return []
 
-    # Поиск суммы
-    amount_patterns = [
-        r'GESAMTBETRAG[:\s]*([\d\.]+,\d{2})\s*€',
-        r'Gesamt[:\s]*([\d\.]+,\d{2})\s*€',
-        r'Total[:\s]*([\d,]+\.\d{2})\s*€',
-        r'€\s*([\d\.]+,\d{2})',
-        r'([\d\.]+,\d{2})\s*EUR',
+    currency = _detect_currency(text)
+    vendor   = _find_vendor(text)
+    events   = []
+
+    CUR = r"(?:\s*(?:€|EUR))?"   # необязательный символ валюты
+
+    # ── Итоговые доходы ────────────────────────────────────────────────────
+    INCOME_PATTERNS = [
+        rf"Gesamteinnahmen[^\d]*([\d][0-9\.\,]+){CUR}",
+        rf"Gesamt\s+Einnahmen[^\d]*([\d][0-9\.\,]+){CUR}",
+        rf"total income[^\d\n]*([\d][0-9\.\,]+){CUR}",
+        rf"amounted to\s*([\d][0-9\.\,]+){CUR}",
+        rf"Einnahmen[:\s]+([\d][0-9\.\,]+){CUR}",
+        rf"income[:\s]+([\d][0-9\.\,]+){CUR}",
+        rf"GESAMTBETRAG[:\s]*([\d][0-9\.\,]+){CUR}",
+        rf"Rechnungsbetrag[:\s]*([\d][0-9\.\,]+){CUR}",
+        rf"([\d][0-9\.\,]+)\s*€",
+        rf"([\d][0-9\.\,]+)\s*EUR",
     ]
 
-    for pattern in amount_patterns:
-        match = re.search(pattern, text, re.IGNORECASE)
-        if match:
-            amount_str = match.group(1)
-            amount_str = amount_str.replace('.', '').replace(',', '.')
-            try:
-                result["amount"] = float(amount_str)
-                break
-            except ValueError:
-                pass
-
-    # Определение категории
-    text_lower = text.lower()
-
-    income_keywords = ["rechnung an", "payment received", "income", "einnahmen", "verkauf"]
-    expense_keywords = ["rechnung von", "expense", "kosten", "purchase", "material", "ausgaben"]
-
-    if any(kw in text_lower for kw in income_keywords):
-        result["category"] = "income"
-    elif any(kw in text_lower for kw in expense_keywords):
-        result["category"] = "expense"
-
-    # Поиск поставщика
-    vendor_patterns = [
-        r'Von[:\s]+([A-Za-z\s&\.]+?)(?:\n|$)',
-        r'Lieferant[:\s]+([A-Za-z\s&\.]+?)(?:\n|$)',
-        r'Vendor[:\s]+([A-Za-z\s&\.]+?)(?:\n|$)',
+    # ── Итоговые расходы ───────────────────────────────────────────────────
+    EXPENSE_PATTERNS = [
+        rf"Gesamtausgaben[^\d]*([\d][0-9\.\,]+){CUR}",
+        rf"Gesamt\s+Ausgaben[^\d]*([\d][0-9\.\,]+){CUR}",
+        rf"gesamt(?:en?)?\s+Ausgaben[^\d\n]*([\d][0-9\.\,]+){CUR}",
+        rf"total expenses[^\d\n]*([\d][0-9\.\,]+){CUR}",
+        rf"Ausgaben[:\s]+([\d][0-9\.\,]+){CUR}",
+        rf"Expenses[:\s]+([\d][0-9\.\,]+){CUR}",
     ]
 
-    for pattern in vendor_patterns:
-        match = re.search(pattern, text, re.IGNORECASE)
-        if match:
-            vendor = match.group(1).strip()
-            if vendor and len(vendor) < 100:
-                result["vendor"] = vendor
-                break
+    # ── Налоги ─────────────────────────────────────────────────────────────
+    # Число с разделителем тысяч: 5.610,00 или 5,610.00 (минимум 4 цифры)
+    _TAXNUM = r"([\d]{1,3}(?:[.,]\d{3})+(?:[.,]\d{1,2})?)"
+    TAX_PATTERNS = [
+        rf"Ertragsteuer[^€\n]*?{_TAXNUM}{CUR}",
+        rf"(?:income\s+)?tax[^€\n]*?{_TAXNUM}{CUR}",
+        rf"Körperschaftsteuer[^€\n]*?{_TAXNUM}{CUR}",
+        rf"Steuer[^€\n]*?{_TAXNUM}{CUR}",
+        rf"MwSt[^€\n]*?{_TAXNUM}{CUR}",
+        rf"VAT[^€\n]*?{_TAXNUM}{CUR}",
+    ]
 
-    return result
+    income_amt  = _find_amount(text, INCOME_PATTERNS)
+    expense_amt = _find_amount(text, EXPENSE_PATTERNS)
+    tax_amt     = _find_amount(text, TAX_PATTERNS)
+
+    if income_amt > 0 and expense_amt > 0:
+        events.append({"amount": income_amt,  "category": "revenue", "vendor": vendor, "currency": currency})
+        events.append({"amount": expense_amt, "category": "expense",  "vendor": vendor, "currency": currency})
+    elif income_amt > 0:
+        events.append({"amount": income_amt, "category": "revenue", "vendor": vendor, "currency": currency})
+    elif expense_amt > 0:
+        events.append({"amount": expense_amt, "category": "expense", "vendor": vendor, "currency": currency})
+
+    # Налог добавляем отдельным событием если нашли
+    if tax_amt > 0:
+        events.append({"amount": tax_amt, "category": "tax", "vendor": vendor, "currency": currency})
+
+    # Fallback — берём первое число и определяем тип по ключевым словам
+    else:
+        fallback = _find_amount(text, [r"([\d][0-9\.\,]+)\s*EUR", r"€\s*([\d][0-9\.\,]+)"])
+        if fallback > 0:
+            tl = text.lower()
+            income_kw  = ["einnahmen", "revenue", "income", "verkauf", "nettogewinn", "gesamteinnahmen"]
+            expense_kw = ["ausgaben",  "expense", "kosten", "material", "purchase"]
+            if any(k in tl for k in income_kw):
+                cat = "revenue"
+            elif any(k in tl for k in expense_kw):
+                cat = "expense"
+            else:
+                cat = "other"
+            events.append({"amount": fallback, "category": cat, "vendor": vendor, "currency": currency})
+
+    return events

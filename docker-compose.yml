@@ -1,3 +1,5 @@
+version: '3.8'
+
 services:
   db:
     image: postgres:15
@@ -27,16 +29,18 @@ services:
     env_file:
       - .env
     environment:
-      - PYTHONDONTWRITEBYTECODE=1  # не создавать .pyc файлы
-      - PYTHONUNBUFFERED=1         # не буферизировать вывод в логи
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
     volumes:
-      - ./uploads:/app/uploads
-      - ./app:/app/app
+      - .:/app              # Пробрасываем корень проекта (код + папка uploads)
+      - /app/venv           # Изолируем папку venv контейнера от маковской (важно для библиотек)
     depends_on:
       db:
         condition: service_healthy
+    # Добавляем --reload, чтобы FastAPI подхватывал изменения кода мгновенно
     command: >
       sh -c "mkdir -p /app/uploads &&
-             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+
 volumes:
   postgres_data:

@@ -9,7 +9,6 @@ import os
 import logging
 from app.config import SECRET_KEY, ALGORITHM
 
-
 logger = logging.getLogger("documents")
 router = APIRouter()
 
@@ -18,30 +17,41 @@ UPLOAD_DIR = "/app/uploads"
 
 
 def get_current_user(
-        token: str = Depends(oauth2_scheme),
-        db: Session = Depends(SessionLocal)
+    token: str = Depends(oauth2_scheme), db: Session = Depends(SessionLocal)
 ):
     """Получает текущего пользователя из JWT токена"""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_email = payload.get("sub")
         if not user_email:
-            raise HTTPException(status_code=401, detail="Invalid token", headers={"WWW-Authenticate": "Bearer"})
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
     except JWTError:
-        raise HTTPException(status_code=401, detail="Invalid token", headers={"WWW-Authenticate": "Bearer"})
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     from app.models.user import User
+
     user = db.query(User).filter(User.email == user_email).first()
     if not user:
-        raise HTTPException(status_code=401, detail="User not found", headers={"WWW-Authenticate": "Bearer"})
+        raise HTTPException(
+            status_code=401,
+            detail="User not found",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
     return {"id": user.id, "email": user.email, "role": getattr(user, "role", "user")}
 
 
 # Список файлов текущего пользователя
 @router.get("/", response_model=list)
 def list_files(
-        current_user: dict = Depends(get_current_user),
-        db: Session = Depends(SessionLocal)
+    current_user: dict = Depends(get_current_user), db: Session = Depends(SessionLocal)
 ):
     """Возвращает список документов пользователя"""
     docs = db.query(Document).filter(Document.owner_id == current_user["id"]).all()
@@ -51,7 +61,7 @@ def list_files(
             "filename": d.filename,
             "status": d.status,
             "language": d.language,
-            "created_at": d.created_at
+            "created_at": d.created_at,
         }
         for d in docs
     ]
@@ -60,9 +70,9 @@ def list_files(
 # Скачивание файла
 @router.get("/{doc_id}")
 def download_file(
-        doc_id: int,
-        current_user: dict = Depends(get_current_user),
-        db: Session = Depends(SessionLocal)
+    doc_id: int,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(SessionLocal),
 ):
     """Скачивает файл по ID"""
     doc = db.query(Document).filter(Document.id == doc_id).first()
@@ -78,9 +88,9 @@ def download_file(
 # Удаление файла
 @router.delete("/{doc_id}")
 def delete_file(
-        doc_id: int,
-        current_user: dict = Depends(get_current_user),
-        db: Session = Depends(SessionLocal)
+    doc_id: int,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(SessionLocal),
 ):
     """Удаляет файл по ID"""
     doc = db.query(Document).filter(Document.id == doc_id).first()
@@ -101,9 +111,9 @@ def delete_file(
 # Получение одного документа
 @router.get("/{doc_id}/info")
 def get_document_info(
-        doc_id: int,
-        current_user: dict = Depends(get_current_user),
-        db: Session = Depends(SessionLocal)
+    doc_id: int,
+    current_user: dict = Depends(get_current_user),
+    db: Session = Depends(SessionLocal),
 ):
     """Возвращает метаданные документа"""
     doc = db.query(Document).filter(Document.id == doc_id).first()
@@ -121,5 +131,5 @@ def get_document_info(
         "file_path": doc.file_path,
         "extraction_result": doc.extraction_result,
         "created_at": doc.created_at,
-        "updated_at": doc.updated_at
+        "updated_at": doc.updated_at,
     }

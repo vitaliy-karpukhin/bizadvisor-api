@@ -37,6 +37,7 @@ bizadvisor-api/
 │   │   ├── __init__.py              # Экспорт всех моделей
 │   │   ├── user.py                  # Модель пользователя
 │   │   ├── document.py              # Модель документа
+│   │   ├── project.py               # Модель проекта
 │   │   └── financial_event.py       # Модель финансового события
 │   ├── routes/
 │   │   ├── __init__.py
@@ -44,6 +45,7 @@ bizadvisor-api/
 │   │   ├── protected.py             # Защищённые роуты по ролям
 │   │   ├── upload.py                # Загрузка, список, скачивание, удаление документов
 │   │   ├── documents.py             # Альтернативный роутер документов (OAuth2PasswordBearer)
+│   │   ├── projects.py              # CRUD /projects — управление проектами
 │   │   ├── analysis.py              # POST /documents/{doc_id}/analyze — AI-анализ через GPT-4o
 │   │   └── dashboard.py             # GET /dashboard — бизнес-метрики
 │   ├── services/
@@ -144,6 +146,44 @@ TOKEN=$(curl -s -X POST http://localhost:8000/auth/login \
 | GET | `/protected/client-only` | Только для клиентов | client |
 | GET | `/protected/partner-only` | Только для партнёров | partner |
 | GET | `/protected/admin-only` | Только для администраторов | admin |
+
+---
+
+### Проекты `/projects`
+
+Все роуты требуют `Authorization: Bearer <token>`
+
+| Метод | Endpoint | Описание |
+|-------|----------|----------|
+| POST | `/projects/` | Создать новый проект |
+| GET | `/projects/` | Список всех проектов пользователя |
+| GET | `/projects/{project_id}` | Получить проект по ID |
+| PUT | `/projects/{project_id}` | Обновить проект |
+| DELETE | `/projects/{project_id}` | Удалить проект |
+
+```bash
+# Создать проект
+curl -X POST "http://localhost:8000/projects/?name=Haus+Mueller&description=Renovierung+Badezimmer" \
+  -H "Authorization: Bearer $TOKEN"
+# → {"id": 1, "name": "Haus Mueller", "description": "Renovierung Badezimmer", "budget": 0.0, "status": "active", "owner_id": 9, ...}
+
+# Список проектов
+curl "http://localhost:8000/projects/" \
+  -H "Authorization: Bearer $TOKEN"
+
+# Получить проект по ID
+curl "http://localhost:8000/projects/1" \
+  -H "Authorization: Bearer $TOKEN"
+
+# Обновить проект
+curl -X PUT "http://localhost:8000/projects/1?name=Haus+Mueller+Updated&status=completed&budget=15000" \
+  -H "Authorization: Bearer $TOKEN"
+
+# Удалить проект
+curl -X DELETE "http://localhost:8000/projects/1" \
+  -H "Authorization: Bearer $TOKEN"
+# → {"message": "Project 1 deleted"}
+```
 
 ---
 
@@ -282,6 +322,18 @@ created_at     DateTime   автоматически (timezone-aware)
 updated_at     DateTime   автоматически (timezone-aware)
 ```
 
+### Project
+```
+id             Int        первичный ключ
+name           String     название проекта (например, "Haus Müller"), обязательный
+address        String     адрес объекта, необязательный
+description    Text       описание работ, необязательный
+budget         Float      сумма контракта с клиентом, default: 0.0
+status         String     "active" | "completed" | "archived", default: "active"
+owner_id       Int        FK → users.id
+created_at     DateTime   автоматически
+```
+
 ### Document
 ```
 id                 Int        первичный ключ
@@ -301,6 +353,7 @@ updated_at         DateTime   автоматически
 id             Int        первичный ключ
 user_id        Int        FK → users.id
 document_id    Int        FK → documents.id
+project_id     Int        FK → projects.id, необязательный
 event_type     String     "invoice" | "contract" | "report" | "unknown"
 vendor         String     название поставщика или клиента
 amount         Float      сумма
@@ -327,9 +380,11 @@ created_at     DateTime   автоматически
 
 После запуска открой [http://localhost:8000/docs](http://localhost:8000/docs)
 
-1. Нажми кнопку **Authorize 🔒** вверху страницы
-2. Введи JWT токен (без слова `Bearer`)
-3. Все защищённые эндпоинты становятся доступны автоматически
+1. Нажми `POST /auth/login` → введи `username` и `password` → Execute
+2. Скопируй `access_token` из ответа
+3. Нажми кнопку **Authorize 🔒** вверху страницы
+4. Введи токен в поле Value → **Authorize**
+5. Все защищённые эндпоинты становятся доступны автоматически
 
 ---
 
@@ -340,6 +395,7 @@ created_at     DateTime   автоматически
 | Аутентификация (JWT + bcrypt) | ✅ Готово |
 | Role-based access control | ✅ Готово |
 | Загрузка и управление документами | ✅ Готово |
+| Управление проектами (CRUD) | ✅ Готово |
 | PDF парсинг (pdfplumber) | ✅ Готово |
 | Определение языка документа | ✅ Готово |
 | Regex-извлечение финансовых данных | ✅ Готово |
