@@ -1,2 +1,28 @@
+# Окружение
 .env
-.env
+.env.*
+!.env.example
+
+# Python
+venv/
+__pycache__/
+*.pyc
+*.pyo
+.Python
+*.egg-info/
+
+# Загруженные файлы пользователей
+uploads/
+
+# Node
+node_modules/
+truevision-frontend/node_modules/
+truevision-frontend/dist/
+
+# Система
+.DS_Store
+*.log
+
+# IDE
+.vscode/
+.idea/
