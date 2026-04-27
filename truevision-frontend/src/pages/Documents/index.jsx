@@ -265,6 +265,25 @@ export default function Documents() {
       .finally(() => setLoading(false));
   };
 
+  const [deduping, setDeduping] = useState(false);
+  const handleDeduplicate = async () => {
+    if (!confirm('Удалить дублирующиеся документы? Будут оставлены только последние версии.')) return;
+    setDeduping(true);
+    try {
+      const res = await api.post('/documents/deduplicate');
+      if (res.data.removed > 0) {
+        fetchDocs();
+        alert(`Удалено ${res.data.removed} дубликат${res.data.removed < 5 ? 'а' : 'ов'}`);
+      } else {
+        alert('Дубликатов не найдено');
+      }
+    } catch (e) {
+      alert('Ошибка: ' + (e.response?.data?.detail || e.message));
+    } finally {
+      setDeduping(false);
+    }
+  };
+
   useEffect(() => { fetchDocs(); }, []);
 
   const [dupWarning, setDupWarning] = useState(null); // { filename, existingId }
@@ -328,10 +347,17 @@ export default function Documents() {
   // Список документов
   return (
     <div style={s.page}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1.5rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <span style={{ color: '#4A5568', fontSize: '0.8rem' }}>
           {docs.length} файл{docs.length === 1 ? '' : docs.length < 5 ? 'а' : 'ов'}
         </span>
+        <button
+          onClick={handleDeduplicate}
+          disabled={deduping}
+          style={{ background: 'transparent', border: '1px solid #1E2530', color: '#6B7280', padding: '6px 14px', borderRadius: '10px', fontSize: '0.78rem', fontWeight: '600', cursor: deduping ? 'not-allowed' : 'pointer' }}
+        >
+          {deduping ? 'Удаляю...' : '🗂 Удалить дубликаты'}
+        </button>
       </div>
 
       <div

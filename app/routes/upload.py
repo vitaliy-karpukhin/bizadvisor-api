@@ -200,3 +200,43 @@ def delete_file(
     db.delete(doc)
     db.commit()
     return {"detail": "File deleted"}
+
+
+@router.post("/deduplicate")
+def deduplicate_documents(
+    authorization: Optional[str] = Header(default=None),
+    db: Session = Depends(get_db),
+):
+    """
+    Находит дубликаты (одинаковое имя файла или хэш) и удаляет более старые копии.
+    Оставляет документ с наибольшим id (последний загруженный).
+    """
+    from app.models.financial_event import FinancialEvent
+    from collections import defaultdict
+
+    user = _get_user_from_token(authorization, db)
+    docs = db.query(Document).filter(Document.owner_id == user["id"]).order_by(Document.id).all()
+
+    # Группируем по хэшу (если есть) или по имени файла
+    groups: dict = defaultdict(list)
+    for doc in docs:
+        key = doc.file_hash if doc.file_hash else doc.filename
+        groups[key].append(doc)
+
+    removed = 0
+    for key, group in groups.items():
+        if len(group) <= 1:
+            continue
+        # Оставляем последний (с наибольшим id), остальные удаляем
+        to_delete = sorted(group, key=lambda d: d.id)[:-1]
+        for doc in to_delete:
+            # Удаляем связанные FinancialEvents
+            db.query(FinancialEvent).filter(FinancialEvent.document_id == doc.id).delete()
+            # Удаляем файл с диска
+            if doc.file_path and os.path.exists(doc.file_path):
+                os.remove(doc.file_path)
+            db.delete(doc)
+            removed += 1
+
+    db.commit()
+    return {"ok": True, "removed": removed}

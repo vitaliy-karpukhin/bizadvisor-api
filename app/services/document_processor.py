@@ -199,6 +199,11 @@ def _find_amount(text: str, patterns: list) -> float:
 
 def _find_vendor(text: str) -> str | None:
     VENDOR_RE = [
+        # Банковские переводы
+        r"Payment recipient\s+Name\s+([A-Za-zÄÖÜäöüß0-9\s&\.\-]+?)(?:\n|IBAN|BIC|$)",
+        r"Zahlungsempfänger\s+([A-Za-zÄÖÜäöüß0-9\s&\.\-]+?)(?:\n|IBAN|BIC|$)",
+        r"Empfänger\s+Name\s+([A-Za-zÄÖÜäöüß0-9\s&\.\-]+?)(?:\n|IBAN|BIC|$)",
+        # Счета / договоры
         r"Verkäufer[:\s]+([A-Za-zÄÖÜäöüß0-9\s&\.\-]+?)(?:\n|•|$)",
         r"Lieferant[:\s]+([A-Za-zÄÖÜäöüß0-9\s&\.\-]+?)(?:\n|•|$)",
         r"Vendor[:\s]+([A-Za-zÄÖÜäöüß0-9\s&\.\-]+?)(?:\n|•|$)",
@@ -293,9 +298,32 @@ def _extract_financial_data(text: str, language: str = "de") -> list:
 
     currency = _detect_currency(text)
     vendor   = _find_vendor(text)
+    tl       = text.lower()
     events   = []
 
-    CUR = r"(?:\s*(?:€|EUR))?"   # необязательный символ валюты
+    CUR = r"(?:\s*(?:€|EUR))?"
+
+    # ── Определяем тип документа ──────────────────────────────────────────
+    # Банковский перевод (исходящий платёж) — всегда расход
+    TRANSFER_SIGNALS = [
+        "payment recipient", "zahlungsempfänger", "order type transfer",
+        "überweisungsbestätigung", "auftragsbestätigung", "überweisen",
+        "empfänger name", "zahlungsauftrag",
+    ]
+    is_transfer = any(s in tl for s in TRANSFER_SIGNALS)
+
+    if is_transfer:
+        # Для банковских переводов ищем только сумму перевода → расход
+        TRANSFER_AMT = [
+            rf"Amount[:\s]*([\d][0-9\.\,]+){CUR}",
+            rf"Betrag[:\s]*([\d][0-9\.\,]+){CUR}",
+            rf"([\d][0-9\.\,]+)\s*EUR",
+            rf"([\d][0-9\.\,]+)\s*€",
+        ]
+        amt = _find_amount(text, TRANSFER_AMT)
+        if amt > 0:
+            events.append({"amount": amt, "category": "expense", "vendor": vendor, "currency": currency})
+        return events
 
     # ── Итоговые доходы ────────────────────────────────────────────────────
     INCOME_PATTERNS = [
@@ -307,8 +335,6 @@ def _extract_financial_data(text: str, language: str = "de") -> list:
         rf"income[:\s]+([\d][0-9\.\,]+){CUR}",
         rf"GESAMTBETRAG[:\s]*([\d][0-9\.\,]+){CUR}",
         rf"Rechnungsbetrag[:\s]*([\d][0-9\.\,]+){CUR}",
-        rf"([\d][0-9\.\,]+)\s*€",
-        rf"([\d][0-9\.\,]+)\s*EUR",
     ]
 
     # ── Итоговые расходы ───────────────────────────────────────────────────
@@ -322,7 +348,6 @@ def _extract_financial_data(text: str, language: str = "de") -> list:
     ]
 
     # ── Налоги ─────────────────────────────────────────────────────────────
-    # Число с разделителем тысяч: 5.610,00 или 5,610.00 (минимум 4 цифры)
     _TAXNUM = r"([\d]{1,3}(?:[.,]\d{3})+(?:[.,]\d{1,2})?)"
     TAX_PATTERNS = [
         rf"Ertragsteuer[^€\n]*?{_TAXNUM}{CUR}",
@@ -345,17 +370,16 @@ def _extract_financial_data(text: str, language: str = "de") -> list:
     elif expense_amt > 0:
         events.append({"amount": expense_amt, "category": "expense", "vendor": vendor, "currency": currency})
 
-    # Налог добавляем отдельным событием если нашли
     if tax_amt > 0:
         events.append({"amount": tax_amt, "category": "tax", "vendor": vendor, "currency": currency})
 
-    # Fallback — берём первое число и определяем тип по ключевым словам
-    else:
-        fallback = _find_amount(text, [r"([\d][0-9\.\,]+)\s*EUR", r"€\s*([\d][0-9\.\,]+)"])
+    # Fallback — первое число, категория по ключевым словам
+    if not events:
+        fallback = _find_amount(text, [rf"([\d][0-9\.\,]+)\s*EUR", rf"([\d][0-9\.\,]+)\s*€"])
         if fallback > 0:
-            tl = text.lower()
-            income_kw  = ["einnahmen", "revenue", "income", "verkauf", "nettogewinn", "gesamteinnahmen"]
-            expense_kw = ["ausgaben",  "expense", "kosten", "material", "purchase"]
+            income_kw  = ["einnahmen", "revenue", "income", "verkauf", "nettogewinn"]
+            expense_kw = ["ausgaben", "expense", "kosten", "material", "purchase",
+                          "rechnung von", "lieferant"]
             if any(k in tl for k in income_kw):
                 cat = "revenue"
             elif any(k in tl for k in expense_kw):
