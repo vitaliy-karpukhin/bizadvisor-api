@@ -31,7 +31,6 @@ app = FastAPI(
 # 2. Настройка CORS
 _cors_raw = os.getenv("CORS_ORIGINS", "")
 _cors_origins = [o.strip() for o in _cors_raw.split(",") if o.strip()] or ["*"]
-logger.info(f"CORS origins: {_cors_origins}")
 
 app.add_middleware(
     CORSMiddleware,
@@ -40,26 +39,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request as StarletteRequest
-from starlette.responses import Response as StarletteResponse
-
-class ForceCORSMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request: StarletteRequest, call_next):
-        origin = request.headers.get("origin", "*")
-        if request.method == "OPTIONS":
-            response = StarletteResponse(status_code=200)
-            response.headers["Access-Control-Allow-Origin"] = origin
-            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-            response.headers["Access-Control-Allow-Headers"] = "*"
-            response.headers["Access-Control-Max-Age"] = "600"
-            return response
-        response = await call_next(request)
-        response.headers["Access-Control-Allow-Origin"] = origin
-        return response
-
-app.add_middleware(ForceCORSMiddleware)
 
 # 3. Раздача статических файлов (АВАТАРКИ)
 # Если папки нет, создаем ее, иначе StaticFiles вызовет ошибку
