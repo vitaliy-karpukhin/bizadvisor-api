@@ -83,7 +83,7 @@ def upload_file(
     return {"ok": True, "id": doc.id, "filename": filename}
 
 
-@router.get("/", response_model=List[dict])
+@router.get("", response_model=List[dict])
 def list_documents(
     request: Request,
     authorization: Optional[str] = Header(default=None),

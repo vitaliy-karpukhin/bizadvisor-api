@@ -95,7 +95,7 @@ def get_current_user_from_header(
 # --- Эндпоинты ---
 
 
-@router.get("/", response_model=DashboardResponse)
+@router.get("", response_model=DashboardResponse)
 def get_dashboard(
     period: str = Query("month", pattern="^(week|month|year|all)$"),
     user: dict = Depends(get_current_user_from_header),

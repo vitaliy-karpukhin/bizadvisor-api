@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(
     title="TrueVision API",
     version="1.0.0",
+    redirect_slashes=False,
 )
 
 # 2. Настройка CORS
