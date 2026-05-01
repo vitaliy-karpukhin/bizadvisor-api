@@ -1,7 +1,4 @@
 import os
-from openai import OpenAI
-
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 
 def extract_with_ai(text: str, language: str) -> str:
@@ -36,6 +33,8 @@ def extract_with_ai(text: str, language: str) -> str:
         category
         document_type
         """
+    from openai import OpenAI
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
     response = client.chat.completions.create(
         model="gpt-4o-mini", messages=[{"role": "user", "content": prompt}]
     )

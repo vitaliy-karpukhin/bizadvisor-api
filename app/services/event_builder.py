@@ -67,12 +67,40 @@ def _normalize_category(raw: str) -> str:
     return "expense"
 
 
+def _remove_conflicting_events(user_id: int, current_doc_id: int, events: list, db: Session):
+    """
+    Удаляет доходные события из других документов, если для того же
+    amount+vendor уже есть расходное событие (дубль загрузки одного PDF).
+    """
+    for ev in events:
+        amount = float(ev.get("amount") or 0)
+        vendor = ev.get("vendor")
+        cat    = ev.get("category", "other")
+        if amount <= 0 or not vendor or cat in ("revenue", "income"):
+            continue
+        # Это расход — удаляем любые «доходы» на ту же сумму+получателя из других документов
+        (
+            db.query(FinancialEvent)
+            .filter(
+                FinancialEvent.user_id == user_id,
+                FinancialEvent.document_id != current_doc_id,
+                FinancialEvent.amount == amount,
+                FinancialEvent.vendor == vendor,
+                FinancialEvent.category.in_(["revenue", "income"]),
+            )
+            .delete(synchronize_session=False)
+        )
+
+
 def build_financial_event(document, db: Session, events: list, recommendations: list = None):
     """
     Создаёт FinancialEvent для каждого извлечённого события документа.
     """
     # Удаляем старые события этого документа (не дублируем при повторном анализе)
     db.query(FinancialEvent).filter(FinancialEvent.document_id == document.id).delete()
+
+    # Удаляем конфликтующие дубли из других документов (один PDF загружен несколько раз)
+    _remove_conflicting_events(document.owner_id, document.id, events, db)
 
     if not events:
         logger.warning(f"Document {document.id}: no events to save")

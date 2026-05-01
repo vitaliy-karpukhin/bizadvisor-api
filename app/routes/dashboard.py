@@ -177,6 +177,23 @@ def get_transactions(
 
     events = _query_events(db, user["id"], period)
 
+    # Дедупликация: если одна и та же сумма+получатель присутствует как доход
+    # из одного документа И как расход из другого документа — это дубль загрузки.
+    # Оставляем только расход (банковский перевод = расход по определению).
+    expense_keys = set()
+    for e in events:
+        if e.category not in ("revenue", "income") and e.vendor:
+            expense_keys.add((round(e.amount or 0, 2), e.vendor))
+    if expense_keys:
+        events = [
+            e for e in events
+            if not (
+                e.category in ("revenue", "income")
+                and e.vendor
+                and (round(e.amount or 0, 2), e.vendor) in expense_keys
+            )
+        ]
+
     if type == "income":
         events = [e for e in events if e.category in INCOME_CATEGORIES]
     elif type == "expense":

@@ -298,7 +298,7 @@ def _extract_financial_data(text: str, language: str = "de") -> list:
 
     currency = _detect_currency(text)
     vendor   = _find_vendor(text)
-    tl       = text.lower()
+    tl       = re.sub(r'[ \t\r\n]+', ' ', text.lower())
     events   = []
 
     CUR = r"(?:\s*(?:€|EUR))?"
