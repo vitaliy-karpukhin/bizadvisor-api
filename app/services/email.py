@@ -9,7 +9,8 @@ SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 
 def send_verification_email(to_email: str, token: str):
     # Ссылка на бэкенд-метод подтверждения
-    verify_url = f"http://localhost:8000/auth/verify?token={token}"
+    base_url = os.getenv("BACKEND_URL", "https://truevision-api-production.up.railway.app")
+    verify_url = f"{base_url}/auth/verify?token={token}"
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = "TrueVision — Подтвердите email"
