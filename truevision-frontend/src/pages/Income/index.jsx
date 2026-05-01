@@ -61,7 +61,7 @@ export default function Income() {
 
     Promise.all([
       api.get('/dashboard/events/categories?type=income&period=month'),
-      api.get('/dashboard/?period=month'),
+      api.get('/dashboard?period=month'),
     ])
       .then(([catRes, metricsRes]) => {
         if (cancelled) return;

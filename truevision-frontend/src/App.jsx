@@ -27,7 +27,7 @@ const AuthWatcher = ({ children }) => {
       if (!token) return;
 
       try {
-        await axios.get('http://localhost:8000/auth/me', {
+        await axios.get('/api/auth/me', {
           headers: { Authorization: `Bearer ${token}` }
         });
       } catch (err) {

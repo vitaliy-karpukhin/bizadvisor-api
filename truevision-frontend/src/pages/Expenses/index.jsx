@@ -48,7 +48,7 @@ export default function Expenses() {
 
     Promise.all([
       api.get(`/dashboard/events/categories?type=expense&period=${period}`),
-      api.get(`/dashboard/?period=${period}`),
+      api.get(`/dashboard?period=${period}`),
     ])
       .then(([catRes, metricsRes]) => {
         if (cancelled) return;

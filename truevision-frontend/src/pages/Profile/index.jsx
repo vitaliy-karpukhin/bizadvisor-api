@@ -45,7 +45,7 @@ export default function Profile() {
       const token = getAuthToken();
       if (!token) { setLoading(false); return; }
       try {
-        const response = await fetch('http://localhost:8000/auth/me', {
+        const response = await fetch('/api/auth/me', {
           headers: { 'Authorization': `Bearer ${token}` }
         });
         if (response.ok) {
@@ -87,7 +87,7 @@ export default function Profile() {
     formData.append('avatar', file);
 
     try {
-      const response = await fetch('http://localhost:8000/auth/upload-avatar', {
+      const response = await fetch('/api/auth/upload-avatar', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData
@@ -126,7 +126,7 @@ export default function Profile() {
     };
 
     try {
-      const response = await fetch('http://localhost:8000/auth/update', {
+      const response = await fetch('/api/auth/update', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

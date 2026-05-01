@@ -46,7 +46,7 @@ export default function Dashboard() {
     setLoading(true);
 
     Promise.all([
-      api.get(`/dashboard/?period=${period}`),
+      api.get(`/dashboard?period=${period}`),
       api.get('/dashboard/chart-data?period=week'),
       api.get('/dashboard/forecast'),
     ])

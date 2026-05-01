@@ -54,7 +54,7 @@ export default function Analytics() {
     let cancelled = false;
     Promise.all([
       api.get('/dashboard/chart-data?period=year'),
-      api.get('/dashboard/?period=year'),
+      api.get('/dashboard?period=year'),
     ])
       .then(([chartRes, metricsRes]) => {
         if (cancelled) return;
