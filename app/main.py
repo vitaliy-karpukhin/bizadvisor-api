@@ -31,11 +31,12 @@ app = FastAPI(
 # 2. Настройка CORS
 _cors_raw = os.getenv("CORS_ORIGINS", "")
 _cors_origins = [o.strip() for o in _cors_raw.split(",") if o.strip()] or ["*"]
+logger.info(f"CORS origins: {_cors_origins}")
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins,
-    allow_credentials=True,
+    allow_credentials=len(_cors_origins) == 1 and _cors_origins[0] != "*",
     allow_methods=["*"],
     allow_headers=["*"],
 )
