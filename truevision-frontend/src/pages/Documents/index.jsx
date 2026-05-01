@@ -259,7 +259,7 @@ export default function Documents() {
   const inputRef = useRef();
 
   const fetchDocs = () => {
-    api.get('/documents/')
+    api.get('/documents')
       .then(r => setDocs(r.data))
       .catch(console.error)
       .finally(() => setLoading(false));
