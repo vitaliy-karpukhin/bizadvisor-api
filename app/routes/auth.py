@@ -72,8 +72,8 @@ def register(user_data: UserRegisterSchema, db: Session = Depends(get_db)):
         user = User(
             email=user_data.email,
             password=hash_password(user_data.password),
-            is_verified=False,
-            verification_token=verification_token,
+            is_verified=True,
+            verification_token=None,
             role="user"
         )
         db.add(user)
