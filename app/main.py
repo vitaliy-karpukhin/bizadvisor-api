@@ -132,29 +132,6 @@ async def startup_event():
     except Exception as e:
         logger.warning(f"Auto-dedup skipped: {e}")
 
-    # 2. Пересчёт FinancialEvents из сохранённого текста (исправляет старые неверные категории)
-    try:
-        from sqlalchemy.orm import Session as _Session
-        from app.models.document import Document as _Doc
-        from app.services.document_processor import _extract_financial_data
-        from app.services.event_builder import build_financial_event
-
-        with _Session(engine) as db:
-            analyzed = db.query(_Doc).filter(_Doc.status == "analyzed").all()
-            refreshed = 0
-            for doc in analyzed:
-                result = doc.extraction_result or {}
-                text = result.get("text", "")
-                if not text:
-                    continue
-                events = _extract_financial_data(text)
-                if events:
-                    build_financial_event(document=doc, db=db, events=events)
-                    refreshed += 1
-            if refreshed:
-                logger.info(f"Refreshed FinancialEvents for {refreshed} document(s)")
-    except Exception as e:
-        logger.warning(f"Event refresh skipped: {e}")
 
     logger.info("Application startup complete.")
 

@@ -7,9 +7,10 @@ import api from '../../api/client.js'
 import { AuthIcons } from '../../components/Icons.jsx'
 import LangSwitcher from '../../components/LangSwitcher.jsx'
 import { s } from './styles'
+import './login.css'
 
 const Feature = ({ Icon, title, desc }) => (
-  <div style={s.featureCard}>
+  <div style={s.featureCard} className="auth-feature-card">
     <div style={{ marginBottom: '0.6rem' }}>
       <Icon style={{ stroke: '#00E5FF' }} />
     </div>
@@ -133,7 +134,7 @@ export default function Login() {
   }
 
   return (
-    <div style={s.wrapper}>
+    <div style={s.wrapper} className="auth-wrapper">
       {/* Toast только для успеха */}
       <div style={{
         ...s.toast,
@@ -143,14 +144,20 @@ export default function Login() {
         {notification.message}
       </div>
 
-      <div style={s.left}>
+      {/* Мобильный хедер — только на маленьких экранах */}
+      <div className="auth-mobile-header">
+        <Logo />
+        <LangSwitcher />
+      </div>
+
+      <div style={s.left} className="auth-left">
         <div style={{ marginBottom: 'auto' }}><Logo /></div>
         <div style={{ marginBottom: 'auto' }}>
           <h1 style={{ fontSize: '2rem', fontWeight: '800', marginBottom: '10px' }}>
             {t.welcome} <br /><span style={{ color: '#00E5FF' }}>{t.system}</span>
           </h1>
           <p style={{ color: '#6B7280', marginBottom: '2rem' }}>Контроль. Рост. Уверенность.</p>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', maxWidth: '550px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', maxWidth: '550px' }} className="auth-features-grid">
             <Feature Icon={AuthIcons.Secure} title="Secure" desc="Bank-grade encryption" />
             <Feature Icon={AuthIcons.Growth} title="Growth" desc="Predictive analytics" />
             <Feature Icon={AuthIcons.Fast} title="Fast" desc="Real-time synchronization" />
@@ -159,12 +166,15 @@ export default function Login() {
         </div>
       </div>
 
-      <div style={s.right}>
-        <div style={{ position: 'absolute', top: '20px', right: '40px', zIndex: 100 }}>
+      <div style={s.right} className="auth-right">
+        <div style={{ position: 'absolute', top: '20px', right: '40px', zIndex: 100 }} className="lang-switcher-wrap">
           <LangSwitcher />
         </div>
 
         <div style={s.formContainer}>
+          <div className="auth-mobile-logo" style={{ display: 'none' }}>
+            <Logo />
+          </div>
           <form onSubmit={handleAuth}>
             <h2 style={{ fontSize: '1.5rem', fontWeight: '700', color: '#fff' }}>{t.h2}</h2>
             <p style={{ color: '#6B7280', marginBottom: '2rem' }}>{t.sub}</p>
@@ -225,7 +235,7 @@ export default function Login() {
             )}
 
             <button type="submit" style={s.mainBtn} disabled={loading}>
-              {loading ? '...' : t.btn}
+              {loading ? <span className="btn-spinner" /> : t.btn}
             </button>
 
             <div style={{ textAlign: 'center', marginTop: '1.5rem', color: '#6B7280' }}>

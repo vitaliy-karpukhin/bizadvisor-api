@@ -50,6 +50,9 @@ def send_verification_email(to_email: str, token: str):
     </html>
     """
 
+    if not resend.api_key:
+        return
+
     resend.Emails.send({
         "from": "TrueVision <onboarding@resend.dev>",
         "to": [to_email],

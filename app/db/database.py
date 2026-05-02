@@ -4,6 +4,7 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 from dotenv import load_dotenv
 
 load_dotenv()
+load_dotenv(".env.local", override=True)  # локальные переопределения, не попадают в git
 
 # Render и другие платформы дают DATABASE_URL одной строкой
 # Локально собирается из отдельных переменных
