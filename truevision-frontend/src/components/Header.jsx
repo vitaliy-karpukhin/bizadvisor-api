@@ -10,14 +10,13 @@ export default function Header({ showProfile = true, onMenuClick }) {
 
   // Маппинг для определения заголовка на основе URL
   const getPageTitle = (path) => {
-    if (path.includes('/income')) return 'Доходы';
-    if (path.includes('/analytics')) return 'Анализ';
-    if (path.includes('/dashboard')) return 'Главная';
-    if (path.includes('/ai-chat')) return 'AI Чат';
-    if (path.includes('/calendar')) return 'Календарь';
-    if (path.includes('/profile')) return 'Профиль';
-    if (path.includes('/documents')) return 'Документы';
-    if (path.includes('/expenses'))     return 'Расходы';
+    if (path.includes('/finances'))    return 'Финансы';
+    if (path.includes('/analytics'))   return 'Анализ';
+    if (path.includes('/dashboard'))   return 'Главная';
+    if (path.includes('/ai-chat'))     return 'AI Чат';
+    if (path.includes('/calendar'))    return 'Календарь';
+    if (path.includes('/profile'))     return 'Профиль';
+    if (path.includes('/documents'))   return 'Документы';
     if (path.includes('/transactions')) return 'Транзакции';
     return 'TrueVision';
   };

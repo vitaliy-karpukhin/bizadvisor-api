@@ -12,11 +12,10 @@ import Profile from './pages/Profile';
 import PathSelection from './pages/PathSelection';
 import Onboarding from './pages/Onboarding';
 import Analytics from './pages/Analytics';
-import Income from './pages/Income';
+import Finances from './pages/Finances';
 import AIChat from './pages/AIChat';
 import Calendar from './pages/Calendar';
 import Documents from './pages/Documents';
-import Expenses from './pages/Expenses';
 import Transactions from './pages/Transactions';
 
 // 1. Проверка живой сессии (если удалили юзера из БД)
@@ -107,8 +106,9 @@ export default function App() {
               <Route path="dashboard" element={<Dashboard />} />
               <Route path="analytics" element={<Analytics />} />
               <Route path="/ai-chat" element={<AIChat />} />
-              <Route path="income" element={<Income />} />
-              <Route path="expenses" element={<Expenses />} />
+              <Route path="finances" element={<Finances />} />
+              <Route path="income" element={<Navigate to="/finances" replace />} />
+              <Route path="expenses" element={<Navigate to="/finances" replace />} />
               <Route path="transactions" element={<Transactions />} />
               <Route path="documents" element={<Documents />} />
               <Route path="/calendar" element={<Calendar />} />

@@ -1,40 +1,90 @@
+export const PERIOD_LABELS = { week: 'Неделя', month: 'Месяц', year: 'Год' };
+
+export const INCOME_COLORS = ['#2563EB', '#4ADE80', '#A855F7', '#FBBF24', '#F87171', '#34D399', '#60A5FA'];
+export const EXPENSE_COLORS = ['#F87171', '#FB923C', '#FBBF24', '#A78BFA', '#60A5FA', '#34D399'];
+
+export const CAT_LABELS = {
+  materials: 'Материалы',
+  personnel: 'Персонал',
+  rent: 'Аренда',
+  insurance: 'Страховка',
+  software: 'ПО',
+  other: 'Прочее',
+  expense: 'Расходы',
+  income: 'Доходы',
+};
+
 export const s = {
   container: {
-    padding: '2rem',
-    height: 'calc(100vh - 100px)',
+    padding: '1.5rem 2rem',
     display: 'flex',
     flexDirection: 'column',
-    overflow: 'hidden',
+    minHeight: 0,
     boxSizing: 'border-box',
   },
-  periodRow: {
+  toolbar: {
     display: 'flex',
+    alignItems: 'center',
     gap: '8px',
     marginBottom: '1.5rem',
-    alignItems: 'center',
+    flexWrap: 'wrap',
+  },
+  tabGroup: {
+    display: 'flex',
+    background: '#151B28',
+    borderRadius: '12px',
+    padding: '4px',
+    gap: '4px',
+  },
+  tab: (active, color) => ({
+    padding: '7px 20px',
+    borderRadius: '9px',
+    border: 'none',
+    cursor: 'pointer',
+    fontSize: '0.85rem',
+    fontWeight: '700',
+    background: active ? color : 'transparent',
+    color: active ? '#fff' : '#6B7280',
+    transition: 'all 0.2s',
+  }),
+  divider: {
+    width: '1px',
+    height: '28px',
+    background: '#1E2530',
+    margin: '0 4px',
   },
   pill: (active) => ({
-    padding: '6px 16px',
+    padding: '6px 14px',
     borderRadius: '20px',
     border: 'none',
     cursor: 'pointer',
     fontSize: '0.78rem',
     fontWeight: '600',
-    background: active ? '#F87171' : '#1E2530',
-    color: active ? '#0B0F17' : '#6B7280',
+    background: active ? '#374151' : '#1E2530',
+    color: active ? '#fff' : '#6B7280',
     transition: 'all 0.2s',
   }),
+  csvBtn: {
+    marginLeft: 'auto',
+    background: 'transparent',
+    border: '1px solid #1E2530',
+    color: '#9CA3AF',
+    padding: '6px 14px',
+    borderRadius: '10px',
+    fontSize: '0.78rem',
+    fontWeight: '600',
+    cursor: 'pointer',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '6px',
+  },
   grid: {
     display: 'grid',
     gridTemplateColumns: '1.2fr 1fr',
-    gap: '2rem',
-    flex: 1,
-    minHeight: 0,
+    gap: '1.5rem',
   },
-
-  // Левая карточка — итоговая сумма расходов
-  mainCard: {
-    background: '#7C2D12',
+  mainCard: (bg) => ({
+    background: bg,
     borderRadius: '24px',
     padding: '2.5rem',
     display: 'flex',
@@ -43,7 +93,8 @@ export const s = {
     position: 'relative',
     overflow: 'hidden',
     boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
-  },
+    minHeight: '280px',
+  }),
   mainCardTop: {
     display: 'flex',
     alignItems: 'center',
@@ -64,13 +115,13 @@ export const s = {
     marginBottom: '1.5rem',
   },
   amountNum: {
-    fontSize: '5rem',
+    fontSize: '4.5rem',
     fontWeight: '800',
     lineHeight: 1,
     color: '#fff',
   },
   amountEur: {
-    fontSize: '2.5rem',
+    fontSize: '2rem',
     fontWeight: '700',
     color: '#fff',
   },
@@ -86,10 +137,10 @@ export const s = {
     alignSelf: 'flex-start',
     color: '#fff',
   },
-  badgeSub: { fontWeight: '400', opacity: 0.8, marginLeft: '4px' },
+  badgeSub: { fontWeight: '400', opacity: 0.8 },
   strip: {
     position: 'absolute',
-    bottom: '30px',
+    bottom: '24px',
     left: '2.5rem',
     right: '2.5rem',
     height: '6px',
@@ -98,22 +149,20 @@ export const s = {
     overflow: 'hidden',
     background: 'rgba(255,255,255,0.1)',
   },
-
-  // Правая карточка — разбивка
   breakdownCard: {
     background: '#151B28',
     borderRadius: '24px',
     padding: '1.5rem',
     display: 'flex',
     flexDirection: 'column',
-    minHeight: 0,
     border: '1px solid rgba(255,255,255,0.05)',
+    minHeight: '280px',
   },
   bdHeader: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: '1.5rem',
+    marginBottom: '1.2rem',
   },
   bdTitle: {
     fontSize: '1rem',
@@ -132,39 +181,39 @@ export const s = {
   list: {
     display: 'flex',
     flexDirection: 'column',
-    gap: '0.8rem',
+    gap: '0.7rem',
     overflowY: 'auto',
-    paddingRight: '4px',
   },
   catCard: {
     background: 'rgba(255,255,255,0.03)',
-    padding: '14px 18px',
-    borderRadius: '16px',
+    padding: '12px 16px',
+    borderRadius: '14px',
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  catLeft: { display: 'flex', alignItems: 'center', gap: '15px' },
+  catLeft: { display: 'flex', alignItems: 'center', gap: '12px' },
   iconBg: (color) => ({
-    width: '36px',
-    height: '36px',
+    width: '34px',
+    height: '34px',
     background: `${color}18`,
     borderRadius: '10px',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
+    fontSize: '0.9rem',
   }),
   catInfo: { display: 'flex', flexDirection: 'column', gap: '2px' },
-  catLabel: { fontSize: '0.95rem', fontWeight: '600', color: '#fff' },
-  catAmount: { fontSize: '1rem', fontWeight: '700', color: '#F87171' },
+  catLabel: { fontSize: '0.9rem', fontWeight: '600', color: '#fff' },
+  catAmount: (color) => ({ fontSize: '0.95rem', fontWeight: '700', color }),
   catProgressBox: {
-    width: '100px',
+    width: '90px',
     display: 'flex',
     flexDirection: 'column',
     alignItems: 'flex-end',
-    gap: '6px',
+    gap: '5px',
   },
-  progressText: { fontSize: '0.8rem', fontWeight: '700', color: '#fff' },
+  progressText: { fontSize: '0.78rem', fontWeight: '700', color: '#fff' },
   barBg: {
     width: '100%',
     height: '4px',
@@ -183,21 +232,4 @@ export const s = {
     textAlign: 'center',
     padding: '2rem 0',
   },
-};
-
-export const PERIOD_LABELS = { week: 'Неделя', month: 'Месяц', year: 'Год' };
-
-export const CAT_COLORS = [
-  '#F87171', '#FB923C', '#FBBF24',
-  '#A78BFA', '#60A5FA', '#34D399',
-];
-
-export const CAT_LABELS = {
-  materials:  'Материалы',
-  personnel:  'Персонал',
-  rent:       'Аренда',
-  insurance:  'Страховка',
-  software:   'ПО',
-  other:      'Прочее',
-  expense:    'Расходы',
 };

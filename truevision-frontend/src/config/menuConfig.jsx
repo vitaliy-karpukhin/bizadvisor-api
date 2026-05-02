@@ -7,8 +7,7 @@ export const getMenuItems = (lang) => {
   return [
     { id: 'dashboard',    label: isRu ? 'Главная'      : 'Dashboard',     path: '/dashboard',    icon: <NavIcons.Dashboard /> },
     { id: 'transactions', label: isRu ? 'Транзакции'   : 'Transaktionen', path: '/transactions', icon: <NavIcons.Transactions /> },
-    { id: 'income',       label: isRu ? 'Доходы'       : 'Einnahmen',     path: '/income',       icon: <NavIcons.Income /> },
-    { id: 'expenses',     label: isRu ? 'Расходы'      : 'Ausgaben',      path: '/expenses',     icon: <NavIcons.Expenses /> },
+    { id: 'finances',     label: isRu ? 'Финансы'      : 'Finanzen',      path: '/finances',     icon: <NavIcons.Finances /> },
     { id: 'documents',    label: isRu ? 'Документы'    : 'Dokumente',     path: '/documents',    icon: <NavIcons.Documents /> },
     { id: 'analytics',    label: isRu ? 'Аналитика'    : 'Analyse',       path: '/analytics',    icon: <NavIcons.Analytics /> },
     { id: 'chat',         label: isRu ? 'AI Чат'       : 'AI Assistant',  path: '/ai-chat',      icon: <NavIcons.Chat /> },

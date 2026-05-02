@@ -1,0 +1,6 @@
+@media (max-width: 768px) {
+  .finances-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+}

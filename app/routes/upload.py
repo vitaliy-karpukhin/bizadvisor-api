@@ -13,7 +13,7 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
-UPLOAD_DIR = "/app/uploads"
+UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")
 
 
 def _get_user_from_token(authorization: Optional[str], db: Session) -> dict:
