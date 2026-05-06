@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import api from '../../api/client';
 import { s, STATUS_LABELS, FIELD_LABELS, PAYMENT_COLORS, PAYMENT_LABELS, formatSize } from './styles';
 import { ActionIcons, UIIcons } from '../../components/Icons.jsx';
+import ConfirmModal from '../../components/ConfirmModal.jsx';
+import Toast from '../../components/Toast.jsx';
 
 // ─── Компонент строки в списке ───────────────────────────────────────────────
 
@@ -65,6 +67,7 @@ function DocDetail({ doc, onBack, onAnalyzed }) {
   const [viewerOpen,    setViewerOpen]    = useState(false);
   const [analyzing,     setAnalyzing]     = useState(false);
   const [currentDoc,    setCurrentDoc]    = useState(doc);
+  const [toast,         setToast]         = useState(null);
 
   const ext     = doc.filename.split('.').pop().toLowerCase();
   const isPdf   = ext === 'pdf';
@@ -87,7 +90,7 @@ function DocDetail({ doc, onBack, onAnalyzed }) {
       setCurrentDoc(updated);
       onAnalyzed(updated);
     } catch (e) {
-      alert('Ошибка анализа: ' + (e.response?.data?.detail || e.message));
+      setToast('Ошибка анализа: ' + (e.response?.data?.detail || e.message));
     } finally {
       setAnalyzing(false);
     }
@@ -100,7 +103,7 @@ function DocDetail({ doc, onBack, onAnalyzed }) {
       setCurrentDoc(updated);
       onAnalyzed(updated);
     } catch (e) {
-      alert('Ошибка: ' + (e.response?.data?.detail || e.message));
+      setToast('Ошибка: ' + (e.response?.data?.detail || e.message));
     }
   };
 
@@ -123,6 +126,7 @@ function DocDetail({ doc, onBack, onAnalyzed }) {
 
   return (
     <div style={s.page}>
+      {toast && <Toast message={toast} onClose={() => setToast(null)} />}
       <button style={s.detailBack} onClick={onBack}>
         <UIIcons.ChevronLeft /> Все документы
       </button>
@@ -266,6 +270,8 @@ export default function Documents() {
   const [uploading, setUploading] = useState(false);
   const [drag, setDrag] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState(null);
+  const [confirmId, setConfirmId] = useState(null);
+  const [toast, setToast] = useState(null);
   const inputRef = useRef();
 
   const fetchDocs = () => {
@@ -298,20 +304,23 @@ export default function Documents() {
         fetchDocs();
       }
     } catch (e) {
-      alert('Ошибка загрузки: ' + (e.response?.data?.detail || e.message));
+      setToast('Ошибка загрузки: ' + (e.response?.data?.detail || e.message));
     } finally {
       setUploading(false);
     }
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm('Удалить документ?')) return;
+  const handleDelete = (id) => setConfirmId(id);
+
+  const confirmDelete = async () => {
+    const id = confirmId;
+    setConfirmId(null);
     try {
       await api.delete(`/documents/${id}`);
       setDocs(prev => prev.filter(d => d.id !== id));
       if (selectedDoc?.id === id) setSelectedDoc(null);
     } catch {
-      alert('Ошибка удаления');
+      setToast('Ошибка удаления');
     }
   };
 
@@ -339,6 +348,14 @@ export default function Documents() {
   // Список документов
   return (
     <div style={s.page}>
+      {confirmId && (
+        <ConfirmModal
+          message="Это действие нельзя отменить. Все извлечённые данные также будут удалены."
+          onConfirm={confirmDelete}
+          onCancel={() => setConfirmId(null)}
+        />
+      )}
+      {toast && <Toast message={toast} onClose={() => setToast(null)} />}
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1.5rem' }}>
         <span style={{ color: '#4A5568', fontSize: '0.8rem' }}>
           {docs.length} файл{docs.length === 1 ? '' : docs.length < 5 ? 'а' : 'ов'}
