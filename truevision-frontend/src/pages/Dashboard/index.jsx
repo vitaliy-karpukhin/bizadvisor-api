@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { s } from './styles';
 import { StatCard, NotificationItem } from './components';
+import Skeleton, { SkeletonCard } from '../../components/Skeleton.jsx';
 import api from '../../api/client';
 import { useExport } from '../../hooks/useExport';
 import { ActionIcons } from '../../components/Icons.jsx';
@@ -85,11 +86,6 @@ export default function Dashboard() {
             {label}
           </button>
         ))}
-        {loading && (
-          <span style={{ color: '#4A5568', fontSize: '0.75rem', marginLeft: '8px' }}>
-            загрузка...
-          </span>
-        )}
         <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
           <button
             onClick={() => navigate('/documents')}
@@ -120,10 +116,19 @@ export default function Dashboard() {
       </div>
 
       <div className="stats-grid" style={{ marginBottom: '1.25rem' }}>
-        <StatCard title="Доходы" value={fmt(metrics.income)} change={`${metrics.documents_analyzed} doc`} trend="up" />
-        <StatCard title="Расходы" value={fmt(metrics.expenses)} change="" trend="down" />
-        <StatCard title="Savings Rate" value={`${savingsRate}%`} />
-        <StatCard title="Available" value={fmt(available)} />
+        {loading ? Array.from({ length: 4 }).map((_, i) => (
+          <SkeletonCard key={i}>
+            <Skeleton width="50%" height="12px" style={{ marginBottom: '14px' }} />
+            <Skeleton width="70%" height="28px" radius="6px" />
+          </SkeletonCard>
+        )) : (
+          <>
+            <StatCard title="Доходы" value={fmt(metrics.income)} change={`${metrics.documents_analyzed} doc`} trend="up" />
+            <StatCard title="Расходы" value={fmt(metrics.expenses)} change="" trend="down" />
+            <StatCard title="Savings Rate" value={`${savingsRate}%`} />
+            <StatCard title="Available" value={fmt(available)} />
+          </>
+        )}
       </div>
 
       {/* Подсказка как включить прогноз — показываем если нет recurring транзакций */}
@@ -156,14 +161,14 @@ export default function Dashboard() {
           </div>
           <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
             {[
-              { label: 'Доходы',  val: forecast.income,  color: '#68D391' },
-              { label: 'Расходы', val: forecast.expense, color: '#FC8181' },
-              { label: 'Остаток', val: forecast.net,     color: forecast.net >= 0 ? '#00E5FF' : '#FC8181' },
-            ].map(({ label, val, color }) => (
+              { label: 'Доходы',  val: forecast.income,   sign: '+', color: '#68D391' },
+              { label: 'Расходы', val: forecast.expense,  sign: '−', color: '#FC8181' },
+              { label: 'Остаток', val: forecast.net,      sign: forecast.net >= 0 ? '+' : '−', color: forecast.net >= 0 ? '#00E5FF' : '#FC8181' },
+            ].map(({ label, val, sign, color }) => (
               <div key={label}>
                 <div style={{ color: '#6B7280', fontSize: '0.7rem', marginBottom: '2px' }}>{label}</div>
                 <div style={{ color, fontWeight: '700', fontSize: '1rem' }}>
-                  {val >= 0 ? '+' : '−'}{Math.abs(val).toLocaleString('de-DE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €
+                  {sign}{Math.abs(val).toLocaleString('de-DE', { minimumFractionDigits: 0, maximumFractionDigits: 0 })} €
                 </div>
               </div>
             ))}

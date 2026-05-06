@@ -1,3 +1,14 @@
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position:  400px 0; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, #1E2530 25%, #252D3D 50%, #1E2530 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s infinite linear;
+}
+
 :root {
   --bg-main:       #0B0F17;
   --bg-card:       #151B28;

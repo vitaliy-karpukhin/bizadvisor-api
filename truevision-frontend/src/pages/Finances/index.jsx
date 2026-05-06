@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Skeleton from '../../components/Skeleton.jsx';
 import { useLang } from '../../context/LangContext.jsx';
 import { useExport } from '../../hooks/useExport';
 import api from '../../api/client';
@@ -158,9 +159,16 @@ export default function Finances() {
             <div style={s.bdSub}>{PERIOD_LABELS[period]?.toUpperCase()}</div>
           </div>
           <div style={s.list}>
-            {loading && (
-              <div style={s.empty}>загрузка...</div>
-            )}
+            {loading && Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', borderBottom: '1px solid #1E2530' }}>
+                <Skeleton width="32px" height="32px" radius="8px" style={{ flexShrink: 0 }} />
+                <div style={{ flex: 1 }}>
+                  <Skeleton width="55%" height="12px" style={{ marginBottom: '6px' }} />
+                  <Skeleton width="80%" height="6px" radius="4px" />
+                </div>
+                <Skeleton width="60px" height="12px" />
+              </div>
+            ))}
             {!loading && data.items.length === 0 && (
               <div style={s.empty}>
                 {isRu ? 'Нет данных — загрузите документы' : 'Keine Daten — Dokumente hochladen'}

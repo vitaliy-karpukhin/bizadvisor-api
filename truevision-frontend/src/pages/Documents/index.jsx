@@ -4,6 +4,7 @@ import { s, STATUS_LABELS, FIELD_LABELS, PAYMENT_COLORS, PAYMENT_LABELS, formatS
 import { ActionIcons, UIIcons } from '../../components/Icons.jsx';
 import ConfirmModal from '../../components/ConfirmModal.jsx';
 import Toast from '../../components/Toast.jsx';
+import Skeleton from '../../components/Skeleton.jsx';
 
 // ─── Компонент строки в списке ───────────────────────────────────────────────
 
@@ -441,7 +442,17 @@ export default function Documents() {
         </div>
       )}
 
-      {loading && <div style={s.empty}>загрузка...</div>}
+      {loading && Array.from({ length: 4 }).map((_, i) => (
+        <div key={i} style={{ background: '#151B28', border: '1px solid #1E2530', borderRadius: '14px', padding: '1rem 1.25rem', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '14px' }}>
+          <Skeleton width="36px" height="36px" radius="10px" style={{ flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <Skeleton width="45%" height="13px" style={{ marginBottom: '8px' }} />
+            <Skeleton width="30%" height="10px" />
+          </div>
+          <Skeleton width="70px" height="28px" radius="8px" />
+          <Skeleton width="28px" height="28px" radius="8px" />
+        </div>
+      ))}
       {!loading && docs.length === 0 && (
         <div style={s.empty}>Нет документов. Загрузите первый счёт или договор.</div>
       )}

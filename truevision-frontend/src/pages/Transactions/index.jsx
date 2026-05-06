@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import Skeleton from '../../components/Skeleton.jsx';
 import api from '../../api/client';
 import { useExport } from '../../hooks/useExport';
 import { ActionIcons } from '../../components/Icons.jsx';
@@ -438,11 +439,18 @@ export default function Transactions() {
         </div>
 
         {/* Состояния */}
-        {loading && (
-          <div style={{ padding: '3rem', textAlign: 'center', color: '#4A5568', fontSize: '0.85rem' }}>
-            Загрузка...
+        {loading && Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} style={{ display: 'grid', gridTemplateColumns: '100px 1fr 130px 110px 140px', gap: '12px', padding: '0.85rem 1.25rem', borderBottom: '1px solid #1E2530', alignItems: 'center' }}>
+            <Skeleton width="70px" height="12px" />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Skeleton width="30px" height="30px" radius="50%" style={{ flexShrink: 0 }} />
+              <Skeleton width="60%" height="12px" />
+            </div>
+            <Skeleton width="80px" height="22px" radius="20px" />
+            <Skeleton width="50px" height="22px" radius="20px" style={{ margin: '0 auto' }} />
+            <Skeleton width="90px" height="12px" style={{ marginLeft: 'auto' }} />
           </div>
-        )}
+        ))}
 
         {!loading && filteredItems.length === 0 && (
           <div style={{ padding: '3rem', textAlign: 'center' }}>
