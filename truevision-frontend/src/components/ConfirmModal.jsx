@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function ConfirmModal({ title = 'Подтвердите действие', message, confirmLabel = 'Удалить', onConfirm, onCancel }) {
+export default function ConfirmModal({ title = 'Подтвердите действие', message, confirmLabel = 'Удалить', onConfirm, onCancel, children }) {
   return (
     <div style={{
       position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
@@ -15,9 +15,12 @@ export default function ConfirmModal({ title = 'Подтвердите дейс�
           {title}
         </div>
         {message && (
-          <div style={{ color: '#6B7280', fontSize: '0.82rem', marginBottom: '1.5rem', lineHeight: '1.5' }}>
+          <div style={{ color: '#6B7280', fontSize: '0.82rem', lineHeight: '1.5', marginBottom: children ? '1rem' : '1.5rem' }}>
             {message}
           </div>
+        )}
+        {children && (
+          <div style={{ marginBottom: '1.5rem' }}>{children}</div>
         )}
         <div style={{ display: 'flex', gap: '10px' }}>
           <button onClick={onCancel} style={{

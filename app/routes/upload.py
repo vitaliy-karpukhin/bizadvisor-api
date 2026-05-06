@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Header, Request
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Header, Request, Query
 from fastapi.responses import FileResponse
 from typing import Optional, List
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from app.db.database import get_db
 from app.models.document import Document
 from app.models.user import User
@@ -90,7 +91,15 @@ def list_documents(
     db: Session = Depends(get_db),
 ):
     user = _get_user_from_token(authorization, db)
+    from app.models.financial_event import FinancialEvent
     docs = db.query(Document).filter(Document.owner_id == user["id"]).all()
+    counts = {
+        r[0]: r[1]
+        for r in db.query(FinancialEvent.document_id, func.count(FinancialEvent.id))
+        .filter(FinancialEvent.document_id.in_([d.id for d in docs]))
+        .group_by(FinancialEvent.document_id)
+        .all()
+    }
     return [
         {
             "id": d.id,
@@ -102,6 +111,7 @@ def list_documents(
             "created_at": d.created_at.isoformat() if d.created_at else None,
             "extraction_result": d.extraction_result or {},
             "payment_status": d.payment_status or "pending",
+            "events_count": counts.get(d.id, 0),
         }
         for d in docs
     ]
@@ -190,15 +200,19 @@ def download_file(
 @router.delete("/{doc_id}")
 def delete_file(
     doc_id: int,
+    delete_events: bool = Query(False),
     authorization: Optional[str] = Header(default=None),
     db: Session = Depends(get_db),
 ):
+    from app.models.financial_event import FinancialEvent
     user = _get_user_from_token(authorization, db)
     doc = db.query(Document).filter(Document.id == doc_id).first()
     if not doc:
         raise HTTPException(404, "File not found")
     if doc.owner_id != user["id"] and user["role"] != "admin":
         raise HTTPException(403, "Not allowed")
+    if delete_events:
+        db.query(FinancialEvent).filter(FinancialEvent.document_id == doc_id).delete()
     if os.path.exists(doc.file_path):
         os.remove(doc.file_path)
     db.delete(doc)

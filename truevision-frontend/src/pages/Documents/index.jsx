@@ -40,7 +40,7 @@ function DocCard({ doc, onView, onDelete }) {
         <button style={s.btn('secondary', false)} onClick={() => onView(doc)}>Просмотр</button>
         <button
           style={s.btn('destructive', false)}
-          onClick={() => onDelete(doc.id)}
+          onClick={() => onDelete(doc)}
           title="Удалить"
         >
           ✕
@@ -270,7 +270,8 @@ export default function Documents() {
   const [uploading, setUploading] = useState(false);
   const [drag, setDrag] = useState(false);
   const [selectedDoc, setSelectedDoc] = useState(null);
-  const [confirmId, setConfirmId] = useState(null);
+  const [confirmDoc, setConfirmDoc] = useState(null); // { id, events_count }
+  const [deleteEvents, setDeleteEvents] = useState(false);
   const [toast, setToast] = useState(null);
   const inputRef = useRef();
 
@@ -310,13 +311,16 @@ export default function Documents() {
     }
   };
 
-  const handleDelete = (id) => setConfirmId(id);
+  const handleDelete = (doc) => {
+    setConfirmDoc({ id: doc.id, events_count: doc.events_count || 0 });
+    setDeleteEvents(false);
+  };
 
   const confirmDelete = async () => {
-    const id = confirmId;
-    setConfirmId(null);
+    const { id } = confirmDoc;
+    setConfirmDoc(null);
     try {
-      await api.delete(`/documents/${id}`);
+      await api.delete(`/documents/${id}?delete_events=${deleteEvents}`);
       setDocs(prev => prev.filter(d => d.id !== id));
       if (selectedDoc?.id === id) setSelectedDoc(null);
     } catch {
@@ -348,12 +352,32 @@ export default function Documents() {
   // Список документов
   return (
     <div style={s.page}>
-      {confirmId && (
+      {confirmDoc && (
         <ConfirmModal
-          message="Это действие нельзя отменить. Все извлечённые данные также будут удалены."
+          title="Удалить документ?"
+          message="Это действие нельзя отменить."
           onConfirm={confirmDelete}
-          onCancel={() => setConfirmId(null)}
-        />
+          onCancel={() => setConfirmDoc(null)}
+        >
+          {confirmDoc.events_count > 0 && (
+            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '10px 12px', background: '#0B0F17', borderRadius: '10px', border: '1px solid #2D3748' }}>
+              <input
+                type="checkbox"
+                checked={deleteEvents}
+                onChange={e => setDeleteEvents(e.target.checked)}
+                style={{ accentColor: '#FC8181', width: '15px', height: '15px' }}
+              />
+              <div>
+                <div style={{ color: '#E2E8F0', fontSize: '0.82rem', fontWeight: '600' }}>
+                  Удалить связанные транзакции
+                </div>
+                <div style={{ color: '#4A5568', fontSize: '0.72rem', marginTop: '2px' }}>
+                  {confirmDoc.events_count} операци{confirmDoc.events_count === 1 ? 'я' : confirmDoc.events_count < 5 ? 'и' : 'й'} будут удалены
+                </div>
+              </div>
+            </label>
+          )}
+        </ConfirmModal>
       )}
       {toast && <Toast message={toast} onClose={() => setToast(null)} />}
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1.5rem' }}>
