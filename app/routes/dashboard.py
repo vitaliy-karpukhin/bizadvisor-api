@@ -222,6 +222,42 @@ def get_transactions(
     }
 
 
+class CreateTransactionRequest(BaseModel):
+    vendor: str
+    amount: float
+    category: str
+    event_date: str  # "YYYY-MM-DD"
+    is_recurring: bool = False
+
+
+@router.post("/transactions")
+def create_transaction(
+    body: CreateTransactionRequest,
+    user: dict = Depends(get_current_user_from_header),
+    db:   Session = Depends(get_db),
+):
+    from app.models.financial_event import FinancialEvent
+    from datetime import datetime
+
+    INCOME_CATS = {"revenue", "income"}
+    event_type = "income" if body.category in INCOME_CATS else "expense"
+
+    event = FinancialEvent(
+        user_id=user["id"],
+        vendor=body.vendor,
+        amount=body.amount,
+        category=body.category,
+        currency="EUR",
+        event_date=datetime.strptime(body.event_date, "%Y-%m-%d"),
+        is_recurring=body.is_recurring,
+        event_type=event_type,
+    )
+    db.add(event)
+    db.commit()
+    db.refresh(event)
+    return {"ok": True, "id": event.id}
+
+
 @router.patch("/transactions/{event_id}/recurring")
 def toggle_recurring(
     event_id: int,

@@ -1,54 +1,65 @@
 import React, { useState, useEffect } from 'react'
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, AreaChart, BarChart, Bar, Cell } from 'recharts'
 import { s } from './styles'
 import api from '../../api/client'
 import { UIIcons, ActionIcons, NewsIcons } from '../../components/Icons.jsx'
 
-// Вспомогательные мини-компоненты
-const StatBox = ({ val, lab }) => (
-  <div style={{ background: '#1E2530', padding: '12px', borderRadius: '12px', textAlign: 'center' }}>
-    <div style={{ color: '#00E5FF', fontWeight: '800', fontSize: '1.1rem' }}>{val}</div>
-    <div style={{ color: '#6B7280', fontSize: '0.65rem', marginTop: '4px', fontWeight: '700' }}>{lab}</div>
+function fmt(n) {
+  return Number(n).toLocaleString('de-DE', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+}
+
+const MetricRow = ({ label, value, color = '#00E5FF', sub }) => (
+  <div style={{
+    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+    padding: '10px 0', borderBottom: '1px solid #1E2530',
+  }}>
+    <div>
+      <div style={{ color: '#9CA3AF', fontSize: '0.78rem' }}>{label}</div>
+      {sub && <div style={{ color: '#4A5568', fontSize: '0.68rem', marginTop: '2px' }}>{sub}</div>}
+    </div>
+    <div style={{ color, fontWeight: '800', fontSize: '1rem', fontVariantNumeric: 'tabular-nums' }}>{value}</div>
   </div>
 );
 
-const CustomNewsRow = ({ label, color, icon: Icon }) => (
+const NewsRow = ({ label, color, icon: Icon }) => (
   <div style={{
-    display: 'flex',
-    alignItems: 'center',
-    gap: '14px',
-    padding: '12px 0',
-    borderBottom: '1px solid rgba(255,255,255,0.05)'
+    display: 'flex', alignItems: 'center', gap: '12px',
+    padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.04)',
   }}>
     <div style={{
-      color: color,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      background: `${color}15`,
-      padding: '8px',
-      borderRadius: '10px'
+      color, background: `${color}18`, padding: '8px', borderRadius: '10px',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
     }}>
       <Icon />
     </div>
-    <span style={{ fontSize: '0.85rem', color: '#E2E8F0', fontWeight: '500' }}>{label}</span>
+    <span style={{ fontSize: '0.83rem', color: '#CBD5E0', fontWeight: '500', lineHeight: '1.4' }}>{label}</span>
   </div>
 );
 
-// Псевдонимы для удобства использования в компоненте
 const Icons = {
   Trend:   UIIcons.Trend,
   Chevron: UIIcons.ChevronDown,
   File:    () => <ActionIcons.File size={18} />,
 };
 
+function ChevronBtn({ isOpen }) {
+  return (
+    <div style={{
+      color: '#4A5568', transition: 'transform 0.2s',
+      transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+    }}>
+      ▾
+    </div>
+  );
+}
+
 export default function Analytics() {
-  const [openStates, setOpenStates] = useState({ growth: true, model: true, news: true });
-  const toggle = (key) => setOpenStates(prev => ({ ...prev, [key]: !prev[key] }));
+  const [open, setOpen] = useState({ growth: true, model: true, news: true });
+  const toggle = k => setOpen(prev => ({ ...prev, [k]: !prev[k] }));
 
   const [lineData, setLineData] = useState([]);
-  const [metrics, setMetrics] = useState({ income: 0, expenses: 0, business_score: 0 });
-  const [loading, setLoading] = useState(true);
+  const [metrics, setMetrics]   = useState({ income: 0, expenses: 0, business_score: 0 });
+  const [loading, setLoading]   = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -61,16 +72,18 @@ export default function Analytics() {
         setLineData(chartRes.data.map(d => ({ n: d.name, v: d.income, e: d.expenses })));
         setMetrics(metricsRes.data);
       })
-      .catch((err) => console.error('Analytics fetch error:', err))
+      .catch(err => console.error('Analytics fetch error:', err))
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
 
-  const hasData = lineData.some(d => d.v > 0 || d.e > 0);
+  const pointsWithData = lineData.filter(d => d.v > 0 || d.e > 0).length;
+  const hasChart = pointsWithData >= 1;
+  const hasLine  = pointsWithData >= 2;
 
-  const maxIncome = lineData.reduce((max, d) => Math.max(max, d.v), 0);
+  const maxIncome   = lineData.reduce((max, d) => Math.max(max, d.v), 0);
   const firstIncome = lineData.find(d => d.v > 0)?.v || 0;
-  const growthPct = firstIncome > 0 && maxIncome > firstIncome
+  const growthPct   = firstIncome > 0 && maxIncome > firstIncome
     ? Math.round(((maxIncome - firstIncome) / firstIncome) * 100)
     : 0;
 
@@ -78,42 +91,87 @@ export default function Analytics() {
     ? Math.round(((metrics.income - metrics.expenses) / metrics.income) * 100)
     : 0;
 
+  const total  = metrics.income + metrics.expenses;
+  const incPct = total > 0 ? Math.round(metrics.income / total * 100) : 50;
+  const expPct = 100 - incPct;
+
   return (
     <div style={s.container}>
       <div style={s.mainContent}>
-        <main className="two-col-grid" style={s.grid}>
+        <main style={s.grid}>
 
-          {/* ЛЕВАЯ КОЛОНКА: РОСТ ДОХОДА */}
+          {/* ─── РОСТ ДОХОДА (полная ширина) ─── */}
           <section style={s.card}>
             <div onClick={() => toggle('growth')} style={s.header}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <h3 style={s.title}>Рост дохода</h3>
-                {growthPct > 0 && <div style={s.badge}><Icons.Trend /> +{growthPct}%</div>}
-                {loading && <span style={{ color: '#4A5568', fontSize: '0.75rem' }}>загрузка...</span>}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                <h3 style={{ ...s.title, whiteSpace: 'nowrap' }}>Рост дохода</h3>
+                {growthPct > 0 && (
+                  <div style={s.badge}><Icons.Trend /> +{growthPct}%</div>
+                )}
+                {loading && <span style={{ color: '#4A5568', fontSize: '0.72rem' }}>загрузка...</span>}
               </div>
-              <Icons.Chevron isOpen={openStates.growth} />
+              <ChevronBtn isOpen={open.growth} />
             </div>
-            {openStates.growth && (
+
+            {open.growth && (
               <div style={{ padding: '0 1.5rem 1.5rem' }}>
-                <p style={s.subText}>Динамика по месяцам (12 мес.)</p>
-                <div style={{ height: '300px' }}>
-                  {!hasData ? (
-                    <div style={{ color: '#4A5568', textAlign: 'center', paddingTop: '4rem', fontSize: '0.85rem' }}>
-                      Нет данных — загрузите и проанализируйте документы
+                <p style={{ ...s.subText, marginBottom: '1rem' }}>Доходы и расходы по месяцам</p>
+
+                {/* Легенда */}
+                {hasChart && (
+                  <div style={{ display: 'flex', gap: '16px', marginBottom: '12px' }}>
+                    <span style={{ color: '#00E5FF', fontSize: '0.72rem', fontWeight: '600' }}>
+                      {hasLine ? '━' : '▮'} Доходы
+                    </span>
+                    <span style={{ color: '#F687B3', fontSize: '0.72rem', fontWeight: '600' }}>
+                      {hasLine ? '╌' : '▮'} Расходы
+                    </span>
+                  </div>
+                )}
+
+                <div style={{ height: '280px' }}>
+                  {loading ? (
+                    <div style={{ color: '#4A5568', textAlign: 'center', paddingTop: '5rem', fontSize: '0.85rem' }}>Загрузка...</div>
+                  ) : !hasChart ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '10px' }}>
+                      <div style={{ fontSize: '2rem' }}>📊</div>
+                      <div style={{ color: '#4A5568', fontSize: '0.82rem', textAlign: 'center' }}>
+                        Загрузите документы для отображения динамики
+                      </div>
                     </div>
+                  ) : hasLine ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={lineData}>
+                        <defs>
+                          <linearGradient id="incGrad" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%"  stopColor="#00E5FF" stopOpacity={0.15} />
+                            <stop offset="95%" stopColor="#00E5FF" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1E2530" />
+                        <XAxis dataKey="n" axisLine={false} tickLine={false} tick={{ fill: '#4A5568', fontSize: 11 }} dy={8} />
+                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#4A5568', fontSize: 11 }} tickFormatter={v => `${fmt(v)}€`} width={60} />
+                        <Tooltip
+                          contentStyle={{ background: '#151B28', border: '1px solid #1E2530', borderRadius: '12px', color: '#fff', fontSize: '0.82rem' }}
+                          formatter={(val, name) => [`${fmt(val)} €`, name === 'v' ? 'Доходы' : 'Расходы']}
+                        />
+                        <Area type="monotone" dataKey="v" stroke="#00E5FF" strokeWidth={2.5} fill="url(#incGrad)" dot={{ r: 3, fill: '#00E5FF', strokeWidth: 0 }} />
+                        <Line type="monotone" dataKey="e" stroke="#F687B3" strokeWidth={2} strokeDasharray="5 4" dot={false} />
+                      </AreaChart>
+                    </ResponsiveContainer>
                   ) : (
                     <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={lineData}>
+                      <BarChart data={lineData.filter(d => d.v > 0 || d.e > 0)} barCategoryGap="30%">
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#1E2530" />
-                        <XAxis dataKey="n" axisLine={false} tickLine={false} tick={{ fill: '#4A5568', fontSize: 11 }} dy={10} />
-                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#4A5568', fontSize: 11 }} tickFormatter={(v) => `${v}€`} />
+                        <XAxis dataKey="n" axisLine={false} tickLine={false} tick={{ fill: '#4A5568', fontSize: 11 }} dy={8} />
+                        <YAxis axisLine={false} tickLine={false} tick={{ fill: '#4A5568', fontSize: 11 }} tickFormatter={v => `${fmt(v)}€`} width={60} />
                         <Tooltip
-                          contentStyle={{ background: '#151B28', border: '1px solid #1E2530', borderRadius: '12px', color: '#fff' }}
-                          formatter={(val, name) => [`${val} €`, name === 'v' ? 'Доходы' : 'Расходы']}
+                          contentStyle={{ background: '#151B28', border: '1px solid #1E2530', borderRadius: '12px', color: '#fff', fontSize: '0.82rem' }}
+                          formatter={(val, name) => [`${fmt(val)} €`, name === 'v' ? 'Доходы' : 'Расходы']}
                         />
-                        <Line type="monotone" dataKey="v" stroke="#00E5FF" strokeWidth={3} dot={{ r: 4, fill: '#00E5FF', strokeWidth: 2, stroke: '#0B0F17' }} />
-                        <Line type="monotone" dataKey="e" stroke="#F687B3" strokeWidth={2} strokeDasharray="4 4" dot={false} />
-                      </LineChart>
+                        <Bar dataKey="v" name="v" fill="#00E5FF" radius={[6, 6, 0, 0]} />
+                        <Bar dataKey="e" name="e" fill="#F687B3" radius={[6, 6, 0, 0]} />
+                      </BarChart>
                     </ResponsiveContainer>
                   )}
                 </div>
@@ -121,77 +179,79 @@ export default function Analytics() {
             )}
           </section>
 
-          {/* ПРАВАЯ КОЛОНКА */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {/* ─── ДВА БЛОКА РЯДОМ (планшет+) ─── */}
+          <div className="analytics-bottom-grid" style={{ alignItems: 'start' }}>
 
-            {/* КАРТОЧКА: ФИНАНСОВАЯ МОДЕЛЬ */}
+            {/* ФИНАНСОВАЯ МОДЕЛЬ */}
             <section style={s.card}>
               <div onClick={() => toggle('model')} style={s.header}>
-                <h3 style={s.title}>Финансовая модель</h3>
-                <Icons.Chevron isOpen={openStates.model} />
+                <h3 style={{ ...s.title, whiteSpace: 'nowrap' }}>Финансовая модель</h3>
+                <ChevronBtn isOpen={open.model} />
               </div>
-              {openStates.model && (
-                <div style={{ padding: '0 1.5rem 1.5rem' }}>
-                  <div style={s.progressContainer}>
-                    <div style={{ width: `${savingsRate > 0 ? Math.min(savingsRate, 100) : 10}%`, background: '#10B981', height: '100%' }} />
-                    <div style={{ width: `${metrics.expenses > 0 && metrics.income > 0 ? Math.min(Math.round(metrics.expenses / metrics.income * 100), 90) : 80}%`, background: '#F59E0B', height: '100%' }} />
+
+              {open.model && (
+                <div style={{ padding: '0 1.25rem 1.25rem' }}>
+                  {/* Прогресс-бар */}
+                  <div style={{ marginBottom: '1rem' }}>
+                    <div style={{ ...s.progressContainer, marginBottom: '6px' }}>
+                      <div style={{ width: `${incPct}%`, background: '#10B981', height: '100%', borderRadius: '10px 0 0 10px', transition: 'width 0.4s' }} />
+                      <div style={{ width: `${expPct}%`, background: '#F59E0B', height: '100%', borderRadius: '0 10px 10px 0', transition: 'width 0.4s' }} />
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ color: '#10B981', fontSize: '0.68rem', fontWeight: '600' }}>● Доходы {incPct}%</span>
+                      <span style={{ color: '#F59E0B', fontSize: '0.68rem', fontWeight: '600' }}>Расходы {expPct}% ●</span>
+                    </div>
                   </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
-                    <StatBox val={`${metrics.income > 0 ? Math.round(metrics.income).toLocaleString('de-DE') : 0} €`} lab="ДОХОДЫ" />
-                    <StatBox val={`${metrics.expenses > 0 ? Math.round(metrics.expenses).toLocaleString('de-DE') : 0} €`} lab="РАСХОДЫ" />
-                    <StatBox val={`${savingsRate}%`} lab="SAVINGS RATE" />
-                    <StatBox val={`${metrics.business_score}%`} lab="BIZ SCORE" />
-                  </div>
-                  <div style={s.balanceRow}>
-                    <span style={{ color: '#6B7280', fontSize: '0.8rem' }}>Business Score</span>
-                    <span style={{ color: '#00E5FF', fontSize: '1.1rem', fontWeight: '800' }}>{metrics.business_score}%</span>
+
+                  {/* Метрики */}
+                  <MetricRow
+                    label="Доходы"
+                    value={`${fmt(metrics.income)} €`}
+                    color="#68D391"
+                  />
+                  <MetricRow
+                    label="Расходы"
+                    value={`${fmt(metrics.expenses)} €`}
+                    color="#FC8181"
+                  />
+                  <MetricRow
+                    label="Норма сбережений"
+                    value={`${savingsRate}%`}
+                    color={savingsRate >= 20 ? '#68D391' : savingsRate >= 10 ? '#F6AD55' : '#FC8181'}
+                    sub="(Доходы − Расходы) / Доходы"
+                  />
+                  <div style={{ paddingTop: '10px' }}>
+                    <MetricRow
+                      label="Рейтинг бизнеса"
+                      value={`${metrics.business_score ?? 0}%`}
+                      color="#00E5FF"
+                    />
                   </div>
                 </div>
               )}
             </section>
 
-            {/* КАРТОЧКА: НОВОСТИ И ВОЗМОЖНОСТИ */}
+            {/* НОВОСТИ И ВОЗМОЖНОСТИ */}
             <section style={s.card}>
               <div onClick={() => toggle('news')} style={s.header}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div style={{
-                    background: 'rgba(0, 229, 255, 0.05)',
-                    padding: '8px',
-                    borderRadius: '10px',
-                    display: 'flex'
-                  }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div style={{ background: 'rgba(0,229,255,0.06)', padding: '7px', borderRadius: '10px', display: 'flex' }}>
                     <Icons.File />
                   </div>
                   <div>
-                    <h3 style={s.title}>Новости и возможности</h3>
-                    <p style={{ margin: 0, fontSize: '0.75rem', color: '#6B7280' }}>4 рекомендации</p>
+                    <h3 style={{ ...s.title, fontSize: '0.95rem', whiteSpace: 'nowrap' }}>Новости и возможности</h3>
+                    <p style={{ margin: 0, fontSize: '0.7rem', color: '#4A5568' }}>4 рекомендации</p>
                   </div>
                 </div>
-                <Icons.Chevron isOpen={openStates.news} />
+                <ChevronBtn isOpen={open.news} />
               </div>
 
-              {openStates.news && (
-                <div style={{ padding: '0 1.5rem 1.5rem' }}>
-                  <CustomNewsRow
-                    label="Новый депозит с доходностью 8%"
-                    color="#F59E0B"
-                    icon={NewsIcons.Deposit}
-                  />
-                  <CustomNewsRow
-                    label="Оптимизация налогов -15%"
-                    color="#10B981"
-                    icon={NewsIcons.Tax}
-                  />
-                  <CustomNewsRow
-                    label="Рефинансирование ипотеки"
-                    color="#3B82F6"
-                    icon={NewsIcons.Home}
-                  />
-                  <CustomNewsRow
-                    label="Страховой кешбэк 200€"
-                    color="#8B5CF6"
-                    icon={NewsIcons.Flash}
-                  />
+              {open.news && (
+                <div style={{ padding: '0 1.25rem 1rem' }}>
+                  <NewsRow label="Новый депозит с доходностью 8%"  color="#F59E0B" icon={NewsIcons.Deposit} />
+                  <NewsRow label="Оптимизация налогов −15%"         color="#10B981" icon={NewsIcons.Tax}     />
+                  <NewsRow label="Рефинансирование ипотеки"         color="#3B82F6" icon={NewsIcons.Home}    />
+                  <NewsRow label="Страховой кешбэк 200 €"           color="#8B5CF6" icon={NewsIcons.Flash}   />
                 </div>
               )}
             </section>
@@ -200,5 +260,5 @@ export default function Analytics() {
         </main>
       </div>
     </div>
-  )
+  );
 }
