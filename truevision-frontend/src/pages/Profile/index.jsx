@@ -153,89 +153,60 @@ export default function Profile() {
   return (
     <div style={s.container}>
       <div style={s.card}>
-        <div style={s.avatarContainer}>
-          <div
-            onClick={handleAvatarClick}
-            style={{
-              ...s.avatarCircle(user.avatar_url),
-              backgroundImage: user.avatar_url ? `url("${user.avatar_url}")` : 'none',
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              // overflow: 'visible' нужен, чтобы галочка SuccessOverlay могла "вылезать" за края
-              overflow: 'visible',
-              position: 'relative',
-              cursor: 'pointer'
-            }}
-          >
-            {!user.avatar_url && (user.first_name?.[0] || 'U').toUpperCase()}
-            {user.avatar_url && (
-              <img
-                src={user.avatar_url}
-                alt="avatar"
-                style={{
-                    width: '100%',
-                    height: '100%',
-                    objectFit: 'cover',
-                    position: 'absolute',
-                    borderRadius: '20px' // соответствует s.avatarCircle
-                }}
-              />
-            )}
 
-            {/* Галочка теперь привязана к аватару */}
-            <SuccessOverlay
-              show={showSuccess}
-              style={{
-                position: 'absolute',
-                bottom: '-8px',
-                right: '-8px'
-              }}
-            />
+        {/* ── Hero ── */}
+        <div style={s.hero}>
+          <div style={s.avatarWrap} onClick={handleAvatarClick}>
+            <div style={s.avatar}>
+              {user.avatar_url
+                ? <img src={user.avatar_url} alt="avatar" style={s.avatarImg} />
+                : (user.first_name?.[0] || 'U').toUpperCase()
+              }
+            </div>
+            <SuccessOverlay show={showSuccess} style={{ position: 'absolute', bottom: '-8px', right: '-8px' }} />
           </div>
-
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileChange}
-            style={{ display: 'none' }}
-            accept="image/jpeg,image/png,image/webp"
-          />
 
           <div style={{ minWidth: 0 }}>
-            <h2 style={{ fontSize: '1.3rem', margin: 0, fontWeight: '700', color: '#fff' }}>
+            <div style={{ color: '#fff', fontWeight: 700, fontSize: '1.1rem', lineHeight: 1.2 }}>
               {user.first_name || 'User'} {user.last_name || ''}
-            </h2>
-            <div
-              style={{ color: '#00E5FF', fontSize: '0.75rem', fontWeight: '600', cursor: 'pointer', marginTop: '4px' }}
+            </div>
+            <div style={{ color: '#4A5568', fontSize: '0.75rem', marginTop: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {user.email}
+            </div>
+            <button
               onClick={handleAvatarClick}
+              style={{ marginTop: '7px', background: 'none', border: 'none', color: '#00E5FF', fontSize: '0.73rem', fontWeight: 600, cursor: 'pointer', padding: 0 }}
             >
-              {t.change_photo || "Сменить фото"}
+              {lang === 'de' ? 'Foto ändern' : 'Сменить фото'}
+            </button>
+          </div>
+        </div>
+
+        {/* ── Form ── */}
+        <div style={s.body}>
+
+          <div style={s.sectionLabel}>{lang === 'de' ? 'Persönliche Daten' : 'Личные данные'}</div>
+          <div style={s.grid}>
+            <InputGroup label={t.name}    value={user.first_name} onChange={v => updateField('first_name', v)} />
+            <InputGroup label={t.surname} value={user.last_name}  onChange={v => updateField('last_name', v)} />
+            <InputGroup label="Email"     value={user.email}      disabled />
+            <InputGroup label="Phone"     value={user.phone}      onChange={v => updateField('phone', v)} />
+          </div>
+
+          <div style={s.divider} />
+          <div style={s.sectionLabel}>{t.biz}</div>
+          <div style={s.grid}>
+            <InputGroup label={t.company}  value={user.company?.name}     onChange={v => updateCompanyField('name', v)} />
+            <InputGroup label={t.position} value={user.company?.position} onChange={v => updateCompanyField('position', v)} />
+            <div style={{ gridColumn: '1 / span 2' }}>
+              <InputGroup label={t.tax_id} value={user.company?.tax_id}   onChange={v => updateCompanyField('tax_id', v)} />
             </div>
           </div>
+
+          <button onClick={handleSave} style={s.saveBtn}>{t.save}</button>
         </div>
 
-        <div style={s.grid}>
-          <InputGroup label={t.name} value={user.first_name} onChange={(v) => updateField('first_name', v)} />
-          <InputGroup label={t.surname} value={user.last_name} onChange={(v) => updateField('last_name', v)} />
-          <InputGroup label="Email" value={user.email} disabled />
-          <InputGroup label="Phone" value={user.phone} onChange={(v) => updateField('phone', v)} />
-        </div>
-
-        <h3 style={s.sectionTitle}>{t.biz}</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-          <InputGroup label={t.company} value={user.company?.name} onChange={(v) => updateCompanyField('name', v)} />
-          <InputGroup label={t.position} value={user.company?.position} onChange={(v) => updateCompanyField('position', v)} />
-          <div style={{ gridColumn: '1 / span 2' }}>
-            <InputGroup label={t.tax_id} value={user.company?.tax_id} onChange={(v) => updateCompanyField('tax_id', v)} />
-          </div>
-        </div>
-
-        <button onClick={handleSave} style={s.saveBtn}>
-          {t.save}
-        </button>
+        <input type="file" ref={fileInputRef} onChange={handleFileChange} style={{ display: 'none' }} accept="image/jpeg,image/png,image/webp" />
       </div>
     </div>
   );

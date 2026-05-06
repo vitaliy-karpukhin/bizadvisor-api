@@ -117,8 +117,57 @@
   .auth-right {
     width: 100% !important;
     min-height: auto !important;
-    padding: 2rem 1.5rem 2.5rem !important;
+    padding: 1.25rem 1rem 2rem !important;
     justify-content: center !important;
+  }
+
+  /* ── Красивая обводка вокруг формы ── */
+  .auth-form-card {
+    background: rgba(11, 15, 23, 0.75) !important;
+    border: 1px solid rgba(0, 229, 255, 0.18) !important;
+    border-radius: 20px !important;
+    padding: 1.4rem 1.25rem !important;
+    backdrop-filter: blur(20px) !important;
+    -webkit-backdrop-filter: blur(20px) !important;
+    box-shadow: 0 0 32px rgba(0, 229, 255, 0.06) !important;
+  }
+
+  /* Компактный заголовок */
+  .auth-form-card h2 {
+    font-size: 1.2rem !important;
+    margin-bottom: 0 !important;
+  }
+  .auth-form-card > form > p,
+  .auth-form-card p {
+    font-size: 0.78rem !important;
+    margin-bottom: 1.1rem !important;
+  }
+
+  /* Компактные инпуты */
+  .auth-form-card input {
+    padding: 11px 14px !important;
+    font-size: 0.9rem !important;
+    border-radius: 10px !important;
+  }
+
+  /* Уменьшаем отступы между полями */
+  .auth-form-card > form > div {
+    margin-bottom: 0.85rem !important;
+  }
+
+  /* Кнопка отправки */
+  .auth-form-card button[type="submit"] {
+    padding: 13px !important;
+    font-size: 0.95rem !important;
+    border-radius: 12px !important;
+    margin-top: 4px !important;
+  }
+
+  /* Ссылка "нет аккаунта" */
+  .auth-form-card > form > div:last-child {
+    margin-top: 1rem !important;
+    margin-bottom: 0 !important;
+    font-size: 0.82rem !important;
   }
 }
 

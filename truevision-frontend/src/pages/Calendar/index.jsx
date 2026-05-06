@@ -76,8 +76,8 @@ export default function Calendar() {
   return (
     <div style={{ padding: '1.5rem', backgroundColor: '#0B0F17', minHeight: '100%', boxSizing: 'border-box' }}>
 
-      {/* Шапка */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+      {/* Шапка: навигация + сводка */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <button onClick={prevMonth} style={navBtn}>‹</button>
           <span style={{ color: '#fff', fontSize: '1.15rem', fontWeight: '700', minWidth: '160px', textAlign: 'center' }}>
@@ -85,9 +85,7 @@ export default function Calendar() {
           </span>
           <button onClick={nextMonth} style={navBtn}>›</button>
         </div>
-
-        {/* Сводка */}
-        <div style={{ display: 'flex', gap: '10px', marginLeft: 'auto' }}>
+        <div className="cal-summary">
           {[
             { label: 'Доходы/мес',  val: monthIncome,  color: '#68D391' },
             { label: 'Расходы/мес', val: monthExpense, color: '#FC8181' },
@@ -100,149 +98,129 @@ export default function Calendar() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-start' }}>
-
-        {/* Сетка календаря */}
-        <div style={{ flex: 1, background: '#151B28', border: '1px solid #1E2530', borderRadius: '16px', overflow: 'hidden' }}>
-          {/* Дни недели */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: '1px solid #1E2530' }}>
-            {DAYS.map(d => (
-              <div key={d} style={{ padding: '10px 0', textAlign: 'center', color: '#4A5568', fontSize: '0.72rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{d}</div>
+      {/* Карточка ВЫШЕ календаря */}
+      {selected && selectedEvents.length > 0 ? (
+        <div style={{ background: '#151B28', border: '1px solid #1E2530', borderRadius: '16px', padding: '1rem', marginBottom: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+            <div style={{ color: '#6B7280', fontSize: '0.72rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+              {selected} {MONTHS[month]}
+            </div>
+            <div style={{ color: '#6B7280', fontSize: '0.75rem' }}>
+              Итого расход: <span style={{ color: '#FC8181', fontWeight: '700' }}>
+                −{fmt(selectedEvents.filter(e => !['revenue','income'].includes(e.category)).reduce((s,e) => s + e.amount, 0))} €
+              </span>
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            {selectedEvents.map(ev => (
+              <div key={ev.id} style={{
+                background: '#0B0F17', border: '1px solid #1E2530', borderRadius: '12px',
+                padding: '8px 12px', display: 'flex', alignItems: 'center', gap: '10px',
+              }}>
+                <div>
+                  <div style={{ color: '#E2E8F0', fontSize: '0.82rem', fontWeight: '600' }}>{ev.vendor || '—'}</div>
+                  <span style={{
+                    padding: '2px 8px', borderRadius: '20px', fontSize: '0.65rem', fontWeight: '600',
+                    background: `${CAT_COLORS[ev.category] || '#6B7280'}20`,
+                    color: CAT_COLORS[ev.category] || '#6B7280',
+                  }}>{ev.category}</span>
+                </div>
+                <div style={{
+                  color: ['revenue','income'].includes(ev.category) ? '#68D391' : '#FC8181',
+                  fontWeight: '700', fontSize: '0.85rem', whiteSpace: 'nowrap', marginLeft: 'auto',
+                }}>
+                  {['revenue','income'].includes(ev.category) ? '+' : '−'}{fmt(ev.amount)} €
+                </div>
+              </div>
             ))}
           </div>
-
-          {/* Ячейки */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
-            {cells.map((day, i) => {
-              const hasEvents  = day && dayMap[day]?.length > 0;
-              const isToday    = isCurrentMonth && day === today;
-              const isSelected = day === selected;
-              const dots       = day ? (dayMap[day] || []) : [];
-
-              return (
-                <div
-                  key={i}
-                  onClick={() => day && setSelected(isSelected ? null : day)}
-                  style={{
-                    minHeight: '72px',
-                    padding: '8px',
-                    borderRight: (i + 1) % 7 !== 0 ? '1px solid #1E2530' : 'none',
-                    borderBottom: i < cells.length - 7 ? '1px solid #1E2530' : 'none',
-                    background: isSelected ? 'rgba(0,229,255,0.07)' : 'transparent',
-                    cursor: hasEvents ? 'pointer' : 'default',
-                    transition: 'background 0.15s',
-                    position: 'relative',
-                  }}
-                  onMouseEnter={e => { if (hasEvents) e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = isSelected ? 'rgba(0,229,255,0.07)' : 'transparent'; }}
-                >
-                  {day && (
-                    <>
-                      <div style={{
-                        width: '28px', height: '28px', borderRadius: '50%',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        background: isToday ? '#00E5FF' : 'transparent',
-                        color: isToday ? '#0B0F17' : '#E2E8F0',
-                        fontSize: '0.82rem', fontWeight: isToday ? '800' : '500',
-                      }}>
-                        {day}
-                      </div>
-
-                      {/* Цветные точки событий */}
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', marginTop: '4px' }}>
-                        {dots.slice(0, 3).map((ev, j) => (
-                          <div key={j} style={{
-                            width: '6px', height: '6px', borderRadius: '50%',
-                            background: CAT_COLORS[ev.category] || '#6B7280',
-                            flexShrink: 0,
-                          }} />
-                        ))}
-                        {dots.length > 3 && (
-                          <span style={{ color: '#4A5568', fontSize: '0.6rem', lineHeight: '6px' }}>+{dots.length - 3}</span>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-              );
-            })}
+        </div>
+      ) : (
+        <div style={{ background: '#151B28', border: '1px solid #1E2530', borderRadius: '16px', padding: '1rem', marginBottom: '1rem' }}>
+          <div style={{ color: '#4A5568', fontSize: '0.8rem', textAlign: 'center', lineHeight: '1.6' }}>
+            {loading ? 'Загрузка...' : events.length === 0
+              ? 'Нет повторяющихся платежей. Отметьте платежи в «Транзакциях» — они появятся на календаре.'
+              : 'Нажмите на день с точкой, чтобы увидеть платежи'}
           </div>
         </div>
+      )}
 
-        {/* Боковая панель */}
-        <div style={{ width: '260px', flexShrink: 0 }}>
-          {selected && selectedEvents.length > 0 ? (
-            <div style={{ background: '#151B28', border: '1px solid #1E2530', borderRadius: '16px', padding: '1rem' }}>
-              <div style={{ color: '#6B7280', fontSize: '0.72rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '12px' }}>
-                {selected} {MONTHS[month]}
-              </div>
-              {selectedEvents.map(ev => (
-                <div key={ev.id} style={{ marginBottom: '10px', paddingBottom: '10px', borderBottom: '1px solid #1E2530' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
-                    <div>
-                      <div style={{ color: '#E2E8F0', fontSize: '0.82rem', fontWeight: '600' }}>{ev.vendor || '—'}</div>
-                      <div style={{ marginTop: '2px' }}>
-                        <span style={{
-                          padding: '2px 8px', borderRadius: '20px', fontSize: '0.68rem', fontWeight: '600',
-                          background: `${CAT_COLORS[ev.category] || '#6B7280'}20`,
-                          color: CAT_COLORS[ev.category] || '#6B7280',
-                        }}>
-                          {ev.category}
-                        </span>
-                      </div>
-                    </div>
+      {/* Сетка календаря — полная ширина */}
+      <div style={{ background: '#151B28', border: '1px solid #1E2530', borderRadius: '16px', overflow: 'hidden' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: '1px solid #1E2530' }}>
+          {DAYS.map(d => (
+            <div key={d} style={{ padding: '10px 0', textAlign: 'center', color: '#4A5568', fontSize: '0.72rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{d}</div>
+          ))}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
+          {cells.map((day, i) => {
+            const hasEvents  = day && dayMap[day]?.length > 0;
+            const isToday    = isCurrentMonth && day === today;
+            const isSelected = day === selected;
+            const dots       = day ? (dayMap[day] || []) : [];
+
+            return (
+              <div
+                key={i}
+                className="cal-cell"
+                onClick={() => day && setSelected(isSelected ? null : day)}
+                style={{
+                  borderRight: (i + 1) % 7 !== 0 ? '1px solid #1E2530' : 'none',
+                  borderBottom: i < cells.length - 7 ? '1px solid #1E2530' : 'none',
+                  background: isSelected ? 'rgba(0,229,255,0.07)' : 'transparent',
+                  cursor: hasEvents ? 'pointer' : 'default',
+                  transition: 'background 0.15s',
+                }}
+                onMouseEnter={e => { if (hasEvents) e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = isSelected ? 'rgba(0,229,255,0.07)' : 'transparent'; }}
+              >
+                {day && (
+                  <>
                     <div style={{
-                      color: ['revenue','income'].includes(ev.category) ? '#68D391' : '#FC8181',
-                      fontWeight: '700', fontSize: '0.85rem', whiteSpace: 'nowrap',
+                      width: '28px', height: '28px', borderRadius: '50%',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      background: isToday ? '#00E5FF' : 'transparent',
+                      color: isToday ? '#0B0F17' : '#E2E8F0',
+                      fontSize: '0.82rem', fontWeight: isToday ? '800' : '500',
                     }}>
-                      {['revenue','income'].includes(ev.category) ? '+' : '−'}{fmt(ev.amount)} €
+                      {day}
                     </div>
-                  </div>
-                </div>
-              ))}
-              <div style={{ marginTop: '4px', display: 'flex', justifyContent: 'space-between', color: '#6B7280', fontSize: '0.75rem' }}>
-                <span>Итого расход:</span>
-                <span style={{ color: '#FC8181', fontWeight: '700' }}>
-                  −{fmt(selectedEvents.filter(e => !['revenue','income'].includes(e.category)).reduce((s,e) => s + e.amount, 0))} €
-                </span>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', marginTop: '4px' }}>
+                      {dots.slice(0, 3).map((ev, j) => (
+                        <div key={j} style={{
+                          width: '6px', height: '6px', borderRadius: '50%',
+                          background: CAT_COLORS[ev.category] || '#6B7280', flexShrink: 0,
+                        }} />
+                      ))}
+                      {dots.length > 3 && (
+                        <span style={{ color: '#4A5568', fontSize: '0.6rem', lineHeight: '6px' }}>+{dots.length - 3}</span>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
-            </div>
-          ) : (
-            <div style={{ background: '#151B28', border: '1px solid #1E2530', borderRadius: '16px', padding: '1.25rem' }}>
-              <div style={{ color: '#4A5568', fontSize: '0.8rem', textAlign: 'center', lineHeight: '1.6' }}>
-                {loading ? 'Загрузка...' : events.length === 0
-                  ? 'Нет повторяющихся платежей.\n\nОтметьте платежи в «Транзакциях» — они появятся на календаре.'
-                  : 'Нажмите на день с точкой чтобы увидеть платежи'}
-              </div>
-            </div>
-          )}
-
-          {/* Легенда */}
-          {events.length > 0 && (
-            <div style={{ background: '#151B28', border: '1px solid #1E2530', borderRadius: '16px', padding: '1rem', marginTop: '10px' }}>
-              <div style={{ color: '#6B7280', fontSize: '0.68rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
-                Повторяющиеся платежи
-              </div>
-              {events.slice(0, 6).map(ev => (
-                <div key={ev.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
-                    <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: CAT_COLORS[ev.category] || '#6B7280', flexShrink: 0 }} />
-                    <span style={{ color: '#9CA3AF', fontSize: '0.78rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                      {ev.vendor || ev.category}
-                    </span>
-                  </div>
-                  <span style={{ color: '#E2E8F0', fontSize: '0.78rem', fontWeight: '700', flexShrink: 0, marginLeft: '8px' }}>
-                    {fmt(ev.amount)} €
-                  </span>
-                </div>
-              ))}
-              {events.length > 6 && (
-                <div style={{ color: '#4A5568', fontSize: '0.72rem', marginTop: '4px' }}>+{events.length - 6} ещё</div>
-              )}
-            </div>
-          )}
+            );
+          })}
         </div>
       </div>
+
+      {/* Легенда под календарем */}
+      {events.length > 0 && (
+        <div style={{ background: '#151B28', border: '1px solid #1E2530', borderRadius: '16px', padding: '1rem', marginTop: '1rem' }}>
+          <div style={{ color: '#6B7280', fontSize: '0.68rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
+            Повторяющиеся платежи
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+            {events.map(ev => (
+              <div key={ev.id} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <div style={{ width: '7px', height: '7px', borderRadius: '50%', background: CAT_COLORS[ev.category] || '#6B7280', flexShrink: 0 }} />
+                <span style={{ color: '#9CA3AF', fontSize: '0.78rem' }}>{ev.vendor || ev.category}</span>
+                <span style={{ color: '#E2E8F0', fontSize: '0.78rem', fontWeight: '700' }}>{fmt(ev.amount)} €</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

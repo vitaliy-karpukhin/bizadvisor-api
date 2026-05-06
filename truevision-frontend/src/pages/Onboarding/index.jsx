@@ -5,6 +5,7 @@ import Header from '../../components/Header.jsx';
 import OnboardingCard from './OnboardingCard.jsx';
 import { ONBOARDING_T } from '../../locales/onboarding/translations';
 import { s } from './styles';
+import './onboarding.css';
 
 export default function Onboarding() {
   const navigate = useNavigate();
@@ -25,27 +26,24 @@ export default function Onboarding() {
   };
 
   return (
-    <div style={s.container}>
+    <div style={s.container} className="onb-container">
       <Header showProfile={false} />
 
-      <main style={s.main}>
-        {/* Индикатор этапа */}
-        <div style={s.stepIndicator}>
+      <main style={s.main} className="onb-main">
+        <div style={s.stepIndicator} className="onb-step-indicator">
           <div style={s.barContainer}>
-            {/* Предполагаю, что s.bar — это функция в твоих стилях */}
             <div style={s.bar(userPath === 'employee')} />
             <div style={s.bar(userPath === 'business')} />
           </div>
           <span style={s.stepLabel}>{current.step}</span>
         </div>
 
-        <div style={{ marginBottom: '2.5rem', flexShrink: 0 }}>
-          <h1 style={s.title}>{current.title}</h1>
-          <p style={s.subtitle}>{current.subtitle}</p>
+        <div style={{ marginBottom: '2.5rem', flexShrink: 0 }} className="onb-header-block">
+          <h1 style={s.title} className="onb-title">{current.title}</h1>
+          <p style={s.subtitle} className="onb-subtitle">{current.subtitle}</p>
         </div>
 
-        {/* Сетка карточек */}
-        <div style={s.grid}>
+        <div style={s.grid} className="onb-grid">
           {current.cards.map((card, idx) => (
             <OnboardingCard
               key={idx}
@@ -56,8 +54,8 @@ export default function Onboarding() {
           ))}
         </div>
 
-        <div style={s.footer}>
-          <button onClick={finishOnboarding} style={s.nextBtn}>
+        <div style={s.footer} className="onb-footer">
+          <button onClick={finishOnboarding} style={s.nextBtn} className="onb-next-btn">
             {t.btn}
           </button>
         </div>

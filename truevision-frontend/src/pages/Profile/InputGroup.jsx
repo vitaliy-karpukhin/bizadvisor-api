@@ -2,8 +2,11 @@ import React from 'react';
 
 export default function InputGroup({ label, value, onChange, disabled }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-      <label style={{ color: '#6B7280', fontSize: '0.75rem', fontWeight: '600', textTransform: 'uppercase' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+      <label style={{
+        color: '#4A5568', fontSize: '0.62rem', fontWeight: '700',
+        textTransform: 'uppercase', letterSpacing: '0.07em',
+      }}>
         {label}
       </label>
       <input
@@ -11,17 +14,19 @@ export default function InputGroup({ label, value, onChange, disabled }) {
         onChange={(e) => onChange && onChange(e.target.value)}
         disabled={disabled}
         style={{
-          background: '#0B0F17',
-          border: '1px solid #1E2530',
-          padding: '12px 14px',
-          borderRadius: '12px',
-          color: disabled ? '#4B5563' : 'white',
-          fontSize: '0.9rem',
+          background: 'rgba(255,255,255,0.04)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          padding: '9px 12px',
+          borderRadius: '10px',
+          color: disabled ? '#374151' : '#E2E8F0',
+          fontSize: '0.87rem',
           outline: 'none',
-          transition: 'border-color 0.2s'
+          width: '100%',
+          boxSizing: 'border-box',
+          transition: 'border-color 0.2s, background 0.2s',
         }}
-        onFocus={(e) => !disabled && (e.target.style.borderColor = '#00E5FF')}
-        onBlur={(e) => (e.target.style.borderColor = '#1E2530')}
+        onFocus={e => !disabled && (e.target.style.borderColor = 'rgba(0,229,255,0.45)')}
+        onBlur={e => (e.target.style.borderColor = 'rgba(255,255,255,0.08)')}
       />
     </div>
   );

@@ -150,6 +150,10 @@ def analyze_document(
 
         result = process_document(doc, db)
         doc.status = "analyzed"
+
+        from app.routes.dashboard import _check_expense_alert
+        _check_expense_alert(user["id"], db)
+
         db.commit()
         db.refresh(doc)
         return {

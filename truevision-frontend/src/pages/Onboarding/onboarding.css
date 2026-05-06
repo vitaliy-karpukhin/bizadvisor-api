@@ -1,0 +1,124 @@
+/* ── Широкий планшет (951–1024px) — 3 колонки ── */
+@media (max-width: 1024px) and (min-width: 951px) {
+  .onb-main {
+    padding: 0 24px !important;
+  }
+  .onb-title {
+    font-size: 2.2rem !important;
+  }
+  .onb-grid {
+    gap: 14px !important;
+  }
+}
+
+/* ── Узкий планшет (769–950px) — 2 колонки ── */
+@media (max-width: 950px) and (min-width: 769px) {
+  .onb-container {
+    height: auto !important;
+    min-height: 100vh !important;
+    overflow-y: auto !important;
+  }
+  .onb-main {
+    justify-content: flex-start !important;
+    min-height: unset !important;
+    padding: 20px 20px 32px !important;
+  }
+  .onb-title {
+    font-size: 2rem !important;
+  }
+  .onb-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 14px !important;
+    align-items: start !important;
+  }
+  .onb-card {
+    min-height: unset !important;
+    flex-direction: column !important;
+  }
+}
+
+/* ── Мобильный (≤768px) ── */
+@media (max-width: 768px) {
+  .onb-container {
+    height: auto !important;
+    min-height: 100vh !important;
+    overflow-y: auto !important;
+  }
+
+  .onb-main {
+    justify-content: flex-start !important;
+    padding: 20px 16px 32px !important;
+    overflow-y: auto !important;
+  }
+
+  .onb-step-indicator {
+    margin-bottom: 14px !important;
+  }
+
+  .onb-header-block {
+    margin-bottom: 1.4rem !important;
+  }
+
+  .onb-title {
+    font-size: 1.75rem !important;
+    letter-spacing: -0.5px !important;
+    margin-bottom: 0.4rem !important;
+  }
+
+  .onb-subtitle {
+    font-size: 0.9rem !important;
+  }
+
+  .onb-grid {
+    grid-template-columns: 1fr !important;
+    gap: 12px !important;
+    margin-bottom: 1.5rem !important;
+  }
+
+  .onb-card {
+    padding: 0.65rem 0.85rem !important;
+    border-radius: 14px !important;
+    flex-direction: row !important;
+    align-items: flex-start !important;
+    gap: 10px !important;
+  }
+
+  .onb-card-icon {
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 8px !important;
+    margin-bottom: 0 !important;
+    flex-shrink: 0 !important;
+  }
+
+  .onb-card-icon svg {
+    width: 16px !important;
+    height: 16px !important;
+  }
+
+  .onb-card-body {
+    flex: 1 !important;
+  }
+
+  .onb-card-body h3 {
+    font-size: 0.88rem !important;
+    margin-bottom: 0.3rem !important;
+  }
+
+  .onb-card-body li {
+    font-size: 0.75rem !important;
+    margin-bottom: 0.25rem !important;
+    gap: 7px !important;
+  }
+
+  .onb-footer {
+    justify-content: stretch !important;
+  }
+
+  .onb-next-btn {
+    width: 100% !important;
+    padding: 0.9rem 1rem !important;
+    border-radius: 14px !important;
+    font-size: 0.95rem !important;
+  }
+}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { BarChart, Bar, XAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { s } from './styles';
 import { StatCard, NotificationItem } from './components';
@@ -34,6 +35,7 @@ function fmt(val) {
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const { download, loading: exportLoading } = useExport();
   const [period,   setPeriod]   = useState('month');
   const [metrics,  setMetrics]  = useState({ income: 0, expenses: 0, business_score: 0, documents_analyzed: 0 });
@@ -88,19 +90,33 @@ export default function Dashboard() {
             загрузка...
           </span>
         )}
-        <button
-          onClick={() => download({ period, type: 'all' })}
-          disabled={exportLoading}
-          style={{
-            marginLeft: 'auto', padding: '6px 14px', borderRadius: '10px', border: '1px solid #1E2530',
-            background: 'transparent', color: exportLoading ? '#4A5568' : '#9CA3AF',
-            fontSize: '0.78rem', fontWeight: '600', cursor: exportLoading ? 'not-allowed' : 'pointer',
-            display: 'flex', alignItems: 'center', gap: '6px',
-          }}
-        >
-          <ActionIcons.Download />
-          {exportLoading ? 'Экспорт...' : 'CSV'}
-        </button>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px' }}>
+          <button
+            onClick={() => navigate('/documents')}
+            style={{
+              padding: '6px 14px', borderRadius: '10px', border: '1px solid #1E2530',
+              background: 'transparent', color: '#9CA3AF',
+              fontSize: '0.78rem', fontWeight: '600', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: '6px',
+            }}
+          >
+            <ActionIcons.File size={13} />
+            Документы
+          </button>
+          <button
+            onClick={() => download({ period, type: 'all' })}
+            disabled={exportLoading}
+            style={{
+              padding: '6px 14px', borderRadius: '10px', border: '1px solid #1E2530',
+              background: 'transparent', color: exportLoading ? '#4A5568' : '#9CA3AF',
+              fontSize: '0.78rem', fontWeight: '600', cursor: exportLoading ? 'not-allowed' : 'pointer',
+              display: 'flex', alignItems: 'center', gap: '6px',
+            }}
+          >
+            <ActionIcons.Download />
+            {exportLoading ? 'Экспорт...' : 'CSV'}
+          </button>
+        </div>
       </div>
 
       <div className="stats-grid" style={{ marginBottom: '1.25rem' }}>

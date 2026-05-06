@@ -13,11 +13,10 @@ export const s = {
     flexDirection: 'column',
   },
   grid: {
-    padding: '1.5rem 2rem',
-    display: 'grid',
-    gridTemplateColumns: '1.6fr 1fr',
-    gap: '20px',
-    alignItems: 'start',
+    padding: '1.5rem',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px',
     boxSizing: 'border-box',
   },
   card: {

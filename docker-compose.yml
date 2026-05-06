@@ -8,6 +8,8 @@ services:
       POSTGRES_USER: ${DB_USER:-admin}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-admin}
       POSTGRES_DB: ${DB_NAME:-truevision}
+    ports:
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./migrations:/migrations
@@ -29,6 +31,7 @@ services:
     environment:
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
+      - DATABASE_URL=postgresql://${DB_USER:-admin}:${DB_PASSWORD:-admin}@db:5432/${DB_NAME:-truevision}
     volumes:
       - .:/app
       - /app/venv

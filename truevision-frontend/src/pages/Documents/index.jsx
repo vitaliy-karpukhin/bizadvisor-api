@@ -6,35 +6,42 @@ import { ActionIcons, UIIcons } from '../../components/Icons.jsx';
 // ─── Компонент строки в списке ───────────────────────────────────────────────
 
 function DocCard({ doc, onView, onDelete }) {
+  const paymentColor = PAYMENT_COLORS[doc.payment_status] || '#4A5568';
   return (
     <div style={s.card}>
       <div style={s.fileIcon}>
         <ActionIcons.File size={18} />
       </div>
+
+      {/* Имя + мета */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={s.fileName} title={doc.filename}>{doc.filename}</div>
         <div style={s.fileMeta}>
-          {formatSize(doc.file_size)}{doc.file_size ? ' · ' : ''}
-          {doc.created_at ? new Date(doc.created_at).toLocaleDateString('ru-RU') : ''}
+          {formatSize(doc.file_size) && <span>{formatSize(doc.file_size)}</span>}
+          {doc.created_at && <span style={{ color: '#2D3748' }}>·</span>}
+          {doc.created_at && <span>{new Date(doc.created_at).toLocaleDateString('ru-RU')}</span>}
+          <span style={{ color: '#2D3748' }}>·</span>
+          <span style={s.badge(doc.status)}>{STATUS_LABELS[doc.status] || doc.status}</span>
+          {doc.status === 'analyzed' && doc.payment_status && (
+            <span style={{
+              padding: '2px 8px', borderRadius: '20px', fontSize: '0.68rem', fontWeight: '600',
+              background: `${paymentColor}20`, color: paymentColor, whiteSpace: 'nowrap',
+            }}>
+              {PAYMENT_LABELS[doc.payment_status] || doc.payment_status}
+            </span>
+          )}
         </div>
       </div>
-      <span style={s.badge(doc.status)}>{STATUS_LABELS[doc.status] || doc.status}</span>
-      {doc.status === 'analyzed' && doc.payment_status && (
-        <span style={{
-          padding: '3px 10px', borderRadius: '20px', fontSize: '0.72rem', fontWeight: '600',
-          background: `${PAYMENT_COLORS[doc.payment_status] || '#4A5568'}20`,
-          color: PAYMENT_COLORS[doc.payment_status] || '#4A5568',
-          whiteSpace: 'nowrap',
-        }}>
-          {PAYMENT_LABELS[doc.payment_status] || doc.payment_status}
-        </span>
-      )}
-      <div style={{ display: 'flex', gap: '8px', marginLeft: 'auto', flexShrink: 0 }}>
-        <button style={s.btn('secondary', false)} onClick={() => onView(doc)}>
-          Просмотр
-        </button>
-        <button style={s.btn('destructive', false)} onClick={() => onDelete(doc.id)}>
-          Удалить
+
+      {/* Кнопки */}
+      <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+        <button style={s.btn('secondary', false)} onClick={() => onView(doc)}>Просмотр</button>
+        <button
+          style={s.btn('destructive', false)}
+          onClick={() => onDelete(doc.id)}
+          title="Удалить"
+        >
+          ✕
         </button>
       </div>
     </div>
@@ -43,13 +50,23 @@ function DocCard({ doc, onView, onDelete }) {
 
 // ─── Детальный экран ─────────────────────────────────────────────────────────
 
-function DocDetail({ doc, onBack, onAnalyzed }) {
-  const [viewerUrl, setViewerUrl] = useState(null);
-  const [viewerLoading, setViewerLoading] = useState(true);
-  const [analyzing, setAnalyzing] = useState(false);
-  const [currentDoc, setCurrentDoc] = useState(doc);
+const HIGHLIGHT_KEYS = new Set(['amount', 'category', 'vendor']);
+const WIDE_KEYS      = new Set(['iban', 'bic', 'empfaenger', 'rechnung_nr']);
 
-  const ext = doc.filename.split('.').pop().toLowerCase();
+const PS_CONFIG = {
+  pending: { label: 'Ожидает оплаты', color: '#F6AD55' },
+  paid:    { label: 'Оплачен',        color: '#68D391' },
+  overdue: { label: 'Просрочен',      color: '#FC8181' },
+};
+
+function DocDetail({ doc, onBack, onAnalyzed }) {
+  const [viewerUrl,     setViewerUrl]     = useState(null);
+  const [viewerLoading, setViewerLoading] = useState(true);
+  const [viewerOpen,    setViewerOpen]    = useState(false);
+  const [analyzing,     setAnalyzing]     = useState(false);
+  const [currentDoc,    setCurrentDoc]    = useState(doc);
+
+  const ext     = doc.filename.split('.').pop().toLowerCase();
   const isPdf   = ext === 'pdf';
   const isImage = ['jpg', 'jpeg', 'png'].includes(ext);
 
@@ -59,10 +76,7 @@ function DocDetail({ doc, onBack, onAnalyzed }) {
       .then(r => { if (alive) setViewerUrl(URL.createObjectURL(r.data)); })
       .catch(() => {})
       .finally(() => { if (alive) setViewerLoading(false); });
-    return () => {
-      alive = false;
-      if (viewerUrl) URL.revokeObjectURL(viewerUrl);
-    };
+    return () => { alive = false; if (viewerUrl) URL.revokeObjectURL(viewerUrl); };
   }, [doc.id]);
 
   const handleAnalyze = async () => {
@@ -91,158 +105,154 @@ function DocDetail({ doc, onBack, onAnalyzed }) {
   };
 
   const result = currentDoc.extraction_result;
-  const resultEntries = result && typeof result === 'object'
+  const allEntries = result && typeof result === 'object'
     ? Object.entries(result).filter(([k, v]) => k !== 'text' && v != null && v !== '' && String(v).trim() !== '')
     : [];
 
-  const isAnalyzed = currentDoc.status === 'analyzed';
+  const highlightEntries = allEntries.filter(([k]) => HIGHLIGHT_KEYS.has(k));
+  const detailEntries    = allEntries.filter(([k]) => !HIGHLIGHT_KEYS.has(k));
+  const isAnalyzed       = currentDoc.status === 'analyzed';
+  const ps               = currentDoc.payment_status || 'pending';
+  const dateStr          = currentDoc.created_at ? new Date(currentDoc.created_at).toLocaleDateString('ru-RU') : '—';
+
+  const fmtVal = (k, v) => k === 'amount' || k === 'netto' || k === 'mwst'
+    ? `${Number(v).toLocaleString('de-DE')} €`
+    : String(v);
+
+  const metricColor = { amount: '#68D391', category: '#F6AD55', vendor: '#E2E8F0' };
 
   return (
     <div style={s.page}>
-      {/* Назад */}
       <button style={s.detailBack} onClick={onBack}>
-        <UIIcons.ChevronLeft />
-        Все документы
+        <UIIcons.ChevronLeft /> Все документы
       </button>
 
-      {/* Заголовок */}
-      <div style={s.detailHeader}>
-        <h2 style={s.detailTitle}>{currentDoc.filename}</h2>
-        <span style={s.badge(currentDoc.status)}>{STATUS_LABELS[currentDoc.status] || currentDoc.status}</span>
-      </div>
+      {/* ── Главная карточка ── */}
+      <div style={s.infoCard}>
 
-      {/* Сетка: данные слева, файл справа */}
-      <div className="detail-grid" style={s.detailGrid}>
+        {/* Hero */}
+        <div style={s.cardHero}>
+          <div style={s.cardHeroIcon}><ActionIcons.File size={22} /></div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={s.cardTitle}>{currentDoc.filename}</div>
+            <div style={s.cardMeta}>{formatSize(currentDoc.file_size)} · {dateStr}</div>
+          </div>
+          <span style={s.badge(currentDoc.status)}>{STATUS_LABELS[currentDoc.status] || currentDoc.status}</span>
+        </div>
 
-        {/* ── Левая колонка: данные ── */}
-        <div style={s.infoCard}>
-          <div style={s.infoSection}>
-            <div style={s.infoLabel}>Файл</div>
-            {[
-              ['Имя',    currentDoc.filename],
-              ['Размер', formatSize(currentDoc.file_size)],
-              ['Дата',   currentDoc.created_at ? new Date(currentDoc.created_at).toLocaleDateString('ru-RU') : '—'],
-              ['Статус', STATUS_LABELS[currentDoc.status] || currentDoc.status],
-            ].map(([k, v]) => (
-              <div key={k} style={s.infoRow}>
-                <span style={s.infoKey}>{k}</span>
-                <span style={s.infoVal}>{v}</span>
+        {/* Метрики */}
+        {isAnalyzed && highlightEntries.length > 0 && (
+          <div style={s.metricsRow}>
+            {highlightEntries.map(([k, v]) => (
+              <div key={k} style={s.metricBox}>
+                <div style={s.metricLabel}>{FIELD_LABELS[k] || k}</div>
+                <div style={{ color: metricColor[k] || '#E2E8F0', fontSize: '1rem', fontWeight: '800', fontVariantNumeric: 'tabular-nums' }}>
+                  {fmtVal(k, v)}
+                </div>
               </div>
             ))}
           </div>
+        )}
 
-          {isAnalyzed && resultEntries.length > 0 && (
-            <div style={s.infoSection}>
-              <div style={s.infoLabel}>Извлечённые данные</div>
-              {resultEntries.map(([k, v]) => (
-                <div key={k} style={s.infoRow}>
-                  <span style={s.infoKey}>{FIELD_LABELS[k] || k}</span>
-                  <span style={{ ...s.infoVal, color: '#00E5FF' }}>
-                    {k === 'amount' ? `${Number(v).toLocaleString('de-DE')} €` : String(v)}
+        {/* Детали */}
+        {isAnalyzed && detailEntries.length > 0 && (
+          <div style={s.detailBody}>
+            <div style={s.detailSectionLabel}>Детали</div>
+            <div style={s.detailFieldsGrid}>
+              {detailEntries.map(([k, v]) => (
+                <div key={k} style={{ ...s.detailFieldItem, ...(WIDE_KEYS.has(k) ? { gridColumn: 'span 2' } : {}) }}>
+                  <span style={s.detailFieldKey}>{FIELD_LABELS[k] || k}</span>
+                  <span style={{ ...s.detailFieldVal, color: ['iban','bic','rechnung_nr'].includes(k) ? '#00E5FF' : '#CBD5E0' }}>
+                    {fmtVal(k, v)}
                   </span>
                 </div>
               ))}
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Статус оплаты */}
-          {isAnalyzed && (() => {
-            const ps = currentDoc.payment_status || 'pending';
-            const psConfig = {
-              pending: { label: 'Ожидает оплаты', color: '#F6AD55' },
-              paid:    { label: 'Оплачен',        color: '#68D391' },
-              overdue: { label: 'Просрочен',       color: '#FC8181' },
-            };
-            const cfg = psConfig[ps] || psConfig.pending;
-            return (
-              <div style={s.infoSection}>
-                <div style={s.infoLabel}>Статус оплаты</div>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  {Object.entries(psConfig).map(([key, { label, color }]) => (
-                    <button
-                      key={key}
-                      onClick={() => handlePaymentStatus(key)}
-                      style={{
-                        padding: '6px 14px', borderRadius: '20px', border: 'none',
-                        cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600',
-                        background: ps === key ? `${color}25` : '#1E2530',
-                        color: ps === key ? color : '#6B7280',
-                        outline: ps === key ? `1px solid ${color}60` : 'none',
-                        transition: 'all 0.2s',
-                      }}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            );
-          })()}
+        {/* Статус оплаты */}
+        {isAnalyzed && (
+          <div style={s.paymentSection}>
+            <span style={{ color: '#4A5568', fontSize: '0.72rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', marginRight: '4px' }}>
+              Статус оплаты
+            </span>
+            {Object.entries(PS_CONFIG).map(([key, { label, color }]) => (
+              <button
+                key={key}
+                onClick={() => handlePaymentStatus(key)}
+                style={{
+                  padding: '5px 14px', borderRadius: '20px', border: 'none',
+                  cursor: 'pointer', fontSize: '0.75rem', fontWeight: '600',
+                  background: ps === key ? `${color}22` : 'rgba(255,255,255,0.04)',
+                  color: ps === key ? color : '#6B7280',
+                  outline: ps === key ? `1px solid ${color}55` : 'none',
+                  transition: 'all 0.2s',
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
 
-          {!isAnalyzed && (
-            <button
-              style={{ ...s.btn('primary', analyzing), width: '100%', marginTop: '0.5rem', padding: '10px' }}
-              onClick={handleAnalyze}
-              disabled={analyzing}
-            >
-              {analyzing ? 'Анализируется...' : 'Анализировать документ'}
-            </button>
-          )}
+        {/* Кнопка анализа */}
+        {!isAnalyzed && (
+          <button style={s.analyzeBtn(analyzing)} onClick={handleAnalyze} disabled={analyzing}>
+            {analyzing ? 'Анализируется...' : currentDoc.status === 'processing_failed' ? 'Повторить анализ' : 'Анализировать документ'}
+          </button>
+        )}
+      </div>
 
-          {currentDoc.status === 'processing_failed' && (
-            <button
-              style={{ ...s.btn('warning', analyzing), width: '100%', marginTop: '0.5rem', padding: '10px' }}
-              onClick={handleAnalyze}
-              disabled={analyzing}
-            >
-              {analyzing ? 'Анализируется...' : 'Повторить анализ'}
-            </button>
-          )}
-        </div>
-
-        {/* ── Правая колонка: просмотр файла ── */}
-        <div style={s.viewerCard}>
-          <div style={s.viewerBar}>
-            <span style={s.viewerBarTitle}>Просмотр файла</span>
-            {viewerUrl && !isPdf && !isImage && (
-              <a href={viewerUrl} download={doc.filename} style={{ color: '#00E5FF', fontSize: '0.78rem' }}>
-                Скачать
+      {/* ── Просмотр файла (коллапс) ── */}
+      <div style={s.viewerOuter}>
+        <div
+          style={s.viewerHeader}
+          onClick={() => setViewerOpen(o => !o)}
+          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+        >
+          <span style={s.viewerHeaderTitle}>Просмотр файла</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {viewerUrl && (
+              <a
+                href={viewerUrl}
+                download={doc.filename}
+                style={s.downloadLink}
+                onClick={e => e.stopPropagation()}
+              >
+                ↓ Скачать
               </a>
             )}
+            <span style={{ color: '#4A5568', fontSize: '1.1rem', lineHeight: 1, transition: 'transform 0.2s', display: 'block', transform: viewerOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+              ▾
+            </span>
           </div>
-
-          {viewerLoading && (
-            <div style={{ padding: '4rem', textAlign: 'center', color: '#4A5568' }}>Загрузка...</div>
-          )}
-
-          {!viewerLoading && !viewerUrl && (
-            <div style={{ padding: '4rem', textAlign: 'center', color: '#4A5568' }}>Не удалось загрузить файл</div>
-          )}
-
-          {!viewerLoading && viewerUrl && isPdf && (
-            <iframe
-              src={viewerUrl}
-              title={doc.filename}
-              style={{ width: '100%', height: '680px', border: 'none', display: 'block' }}
-            />
-          )}
-
-          {!viewerLoading && viewerUrl && isImage && (
-            <div style={{ padding: '1.5rem', display: 'flex', justifyContent: 'center', background: '#0B0F17' }}>
-              <img
-                src={viewerUrl}
-                alt={doc.filename}
-                style={{ maxWidth: '100%', maxHeight: '640px', objectFit: 'contain', borderRadius: '8px' }}
-              />
-            </div>
-          )}
-
-          {!viewerLoading && viewerUrl && !isPdf && !isImage && (
-            <div style={{ padding: '3rem', textAlign: 'center', color: '#4A5568', fontSize: '0.85rem' }}>
-              Просмотр недоступен для этого типа файла.
-            </div>
-          )}
         </div>
+
+        {viewerOpen && (
+          <>
+            {viewerLoading && (
+              <div style={{ padding: '3rem', textAlign: 'center', color: '#4A5568' }}>Загрузка...</div>
+            )}
+            {!viewerLoading && !viewerUrl && (
+              <div style={{ padding: '3rem', textAlign: 'center', color: '#4A5568' }}>Не удалось загрузить файл</div>
+            )}
+            {!viewerLoading && viewerUrl && isPdf && (
+              <iframe src={viewerUrl} title={doc.filename} style={{ width: '100%', height: '70vh', border: 'none', display: 'block' }} />
+            )}
+            {!viewerLoading && viewerUrl && isImage && (
+              <div style={{ padding: '1.5rem', display: 'flex', justifyContent: 'center', background: '#0B0F17' }}>
+                <img src={viewerUrl} alt={doc.filename} style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: '8px' }} />
+              </div>
+            )}
+            {!viewerLoading && viewerUrl && !isPdf && !isImage && (
+              <div style={{ padding: '3rem', textAlign: 'center', color: '#4A5568', fontSize: '0.85rem' }}>
+                Просмотр недоступен для этого типа файла.
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );

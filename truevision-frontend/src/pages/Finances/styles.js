@@ -82,6 +82,7 @@ export const s = {
     display: 'grid',
     gridTemplateColumns: '1.2fr 1fr',
     gap: '1.5rem',
+    alignItems: 'start',
   },
   mainCard: (bg) => ({
     background: bg,
@@ -93,7 +94,7 @@ export const s = {
     position: 'relative',
     overflow: 'hidden',
     boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
-    minHeight: '280px',
+    minHeight: '260px',
   }),
   mainCardTop: {
     display: 'flex',
@@ -183,6 +184,7 @@ export const s = {
     flexDirection: 'column',
     gap: '0.7rem',
     overflowY: 'auto',
+    maxHeight: '420px',
   },
   catCard: {
     background: 'rgba(255,255,255,0.03)',

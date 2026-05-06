@@ -6,6 +6,7 @@ import PathCard from './PathCard.jsx';
 import api from '../../api/client.js';
 import { PATH_T } from '../../locales/pathSelection/translations';
 import { s } from './styles';
+import './path-selection.css';
 
 export default function PathSelection() {
   const { lang } = useLang();
@@ -54,12 +55,12 @@ export default function PathSelection() {
   return (
     <div style={s.container}>
       <Header showProfile={false} />
-      <main style={s.main}>
-        <div style={s.headerBox}>
-          <h1 style={s.title}>{t.title}</h1>
-          <p style={s.subtitle}>{t.subtitle}</p>
+      <main style={s.main} className="path-main">
+        <div style={s.headerBox} className="path-header">
+          <h1 style={s.title} className="path-title">{t.title}</h1>
+          <p style={s.subtitle} className="path-subtitle">{t.subtitle}</p>
         </div>
-        <div style={s.grid}>
+        <div style={s.grid} className="path-grid">
           <PathCard
             num={1}
             type="employee"

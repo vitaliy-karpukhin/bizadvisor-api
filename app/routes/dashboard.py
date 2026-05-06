@@ -230,6 +230,47 @@ class CreateTransactionRequest(BaseModel):
     is_recurring: bool = False
 
 
+def _check_expense_alert(user_id: int, db) -> None:
+    """Создаёт уведомление если расходы текущего месяца превысили доходы."""
+    from app.models.financial_event import FinancialEvent
+    from app.models.notification import Notification
+    from app.services.extraction import INCOME_CATEGORIES
+    from datetime import datetime, timezone
+
+    now = datetime.now(timezone.utc)
+    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    events = db.query(FinancialEvent).filter(
+        FinancialEvent.user_id == user_id,
+        FinancialEvent.event_date >= month_start,
+    ).all()
+
+    income   = sum(e.amount or 0 for e in events if e.category in INCOME_CATEGORIES)
+    expenses = sum(e.amount or 0 for e in events if e.category not in INCOME_CATEGORIES)
+
+    if expenses <= income:
+        return
+
+    # Не дублируем — проверяем нет ли уже непрочитанного алерта за этот месяц
+    already = db.query(Notification).filter(
+        Notification.user_id == user_id,
+        Notification.title == "Расходы превысили доходы",
+        Notification.is_read == False,  # noqa: E712
+        Notification.created_at >= month_start,
+    ).first()
+
+    if already:
+        return
+
+    diff = expenses - income
+    db.add(Notification(
+        user_id=user_id,
+        title="Расходы превысили доходы",
+        body=f"В этом месяце расходы больше доходов на {diff:,.0f} €".replace(",", "."),
+        type="warning",
+    ))
+
+
 @router.post("/transactions")
 def create_transaction(
     body: CreateTransactionRequest,
@@ -253,8 +294,11 @@ def create_transaction(
         event_type=event_type,
     )
     db.add(event)
+    db.flush()
+
+    _check_expense_alert(user["id"], db)
+
     db.commit()
-    db.refresh(event)
     return {"ok": True, "id": event.id}
 
 

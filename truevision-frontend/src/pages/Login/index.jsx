@@ -171,7 +171,7 @@ export default function Login() {
           <LangSwitcher />
         </div>
 
-        <div style={s.formContainer}>
+        <div style={s.formContainer} className="auth-form-card">
           <div className="auth-mobile-logo" style={{ display: 'none' }}>
             <Logo />
           </div>

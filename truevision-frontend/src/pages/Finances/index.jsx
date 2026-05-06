@@ -125,7 +125,7 @@ export default function Finances() {
               <span style={{ color: 'rgba(255,255,255,0.4)', fontSize: '2rem' }}>...</span>
             ) : (
               <>
-                <span style={s.amountNum}>{totalFormatted}</span>
+                <span style={s.amountNum} className="finances-amount">{totalFormatted}</span>
                 <span style={s.amountEur}>€</span>
               </>
             )}

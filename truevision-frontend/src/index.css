@@ -148,3 +148,44 @@ body {
 @media (max-width: 420px) {
   .stats-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
 }
+
+.analytics-bottom-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+}
+
+@media (min-width: 768px) {
+  .analytics-bottom-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* ── Хедер: адаптив ──────────────────────────────────────────────────────────*/
+.header-name-block { display: none; }
+.header-divider    { display: none; }
+.header-lang       { display: flex; align-items: center; }
+
+/* Имя + разделитель — только на десктопе */
+@media (min-width: 1100px) {
+  .header-name-block { display: flex; flex-direction: column; }
+  .header-divider    { display: block; }
+}
+
+/* LangSwitcher скрываем только на совсем узких экранах */
+@media (max-width: 480px) {
+  .header-lang { display: none; }
+}
+
+/* ── Календарь: адаптив ──────────────────────────────────────────────────────*/
+.cal-summary { display: flex; gap: 10px; margin-left: auto; }
+.cal-cell    { min-height: 72px; padding: 8px; position: relative; }
+
+@media (max-width: 768px) {
+  .cal-summary       { margin-left: 0; width: 100%; }
+  .cal-summary > div { flex: 1; min-width: 0; }
+}
+
+@media (max-width: 600px) {
+  .cal-cell { min-height: 52px; padding: 5px; }
+}

@@ -25,15 +25,13 @@ export const STATUS_LABELS = {
 };
 
 export const FIELD_LABELS = {
-  // Финансовые данные
   amount:       'Сумма',
   category:     'Категория',
   vendor:       'Поставщик',
   currency:     'Валюта',
   netto:        'Нетто',
   mwst:         'НДС (MwSt)',
-  events_count: 'Событий извлечено',
-  // Реквизиты
+  events_count: 'Событий',
   firma:        'Компания',
   iban:         'IBAN',
   bic:          'BIC / SWIFT',
@@ -52,10 +50,8 @@ export function formatSize(bytes) {
 }
 
 export const s = {
-  page:   { padding: '1.5rem', backgroundColor: '#0B0F17', minHeight: '100%', boxSizing: 'border-box' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' },
-  title:  { color: '#fff', fontSize: '1.2rem', fontWeight: '700', margin: 0 },
-  empty:  { color: '#4A5568', textAlign: 'center', padding: '3rem', fontSize: '0.85rem' },
+  page:  { padding: '1.5rem', backgroundColor: '#0B0F17', minHeight: '100%', boxSizing: 'border-box' },
+  empty: { color: '#4A5568', textAlign: 'center', padding: '3rem', fontSize: '0.85rem' },
 
   uploadZone: (drag) => ({
     border: `2px dashed ${drag ? '#00E5FF' : '#1E2530'}`,
@@ -66,20 +62,25 @@ export const s = {
 
   card: {
     background: '#151B28', border: '1px solid #1E2530',
-    borderRadius: '16px', padding: '1rem 1.25rem',
-    display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.75rem',
+    borderRadius: '16px', padding: '0.9rem 1.25rem',
+    display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '0.75rem',
+    minWidth: 0,
   },
   fileIcon: {
-    width: '38px', height: '38px', background: 'rgba(0,229,255,0.08)',
-    borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+    width: '36px', height: '36px', background: 'rgba(0,229,255,0.08)',
+    borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+    flexShrink: 0, color: '#00E5FF',
   },
-  fileName: { color: '#E2E8F0', fontSize: '0.88rem', fontWeight: '600', marginBottom: '2px' },
-  fileMeta: { color: '#4A5568', fontSize: '0.72rem' },
+  fileName: {
+    color: '#E2E8F0', fontSize: '0.85rem', fontWeight: '600', marginBottom: '3px',
+    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+  },
+  fileMeta: { color: '#4A5568', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' },
 
   badge: (st) => ({
-    padding: '3px 10px', borderRadius: '20px', fontSize: '0.72rem', fontWeight: '600',
+    padding: '3px 10px', borderRadius: '20px', fontSize: '0.7rem', fontWeight: '600',
     background: `${STATUS_COLORS[st] || '#4A5568'}20`, color: STATUS_COLORS[st] || '#4A5568',
-    whiteSpace: 'nowrap',
+    whiteSpace: 'nowrap', flexShrink: 0,
   }),
 
   btn: (variant, disabled) => {
@@ -87,7 +88,6 @@ export const s = {
       primary:     { background: '#00E5FF', color: '#0B0F17', border: 'none' },
       secondary:   { background: '#1E2530', color: '#CBD5E0', border: '1px solid #2D3748' },
       destructive: { background: 'transparent', color: '#6B7280', border: '1px solid #1E2530' },
-      blue:        { background: '#3B82F6', color: '#fff', border: 'none' },
       warning:     { background: 'transparent', color: '#F6AD55', border: '1px solid #2D3748' },
     };
     const v = variants[variant] || variants.secondary;
@@ -101,40 +101,128 @@ export const s = {
     };
   },
 
-  // Детальный экран
+  // ── Детальный экран ──────────────────────────────────────────────────────────
   detailBack: {
     display: 'flex', alignItems: 'center', gap: '8px',
     color: '#4A5568', fontSize: '0.82rem', cursor: 'pointer',
     marginBottom: '1.25rem', background: 'none', border: 'none', padding: 0,
   },
-  detailHeader: {
-    display: 'flex', alignItems: 'center', gap: '12px',
-    marginBottom: '1.5rem', flexWrap: 'wrap',
-  },
-  detailTitle: { color: '#fff', fontSize: '1rem', fontWeight: '700', margin: 0 },
-  detailGrid: {
-    display: 'grid', gridTemplateColumns: '320px 1fr',
-    gap: '20px', alignItems: 'start',
-  },
+
+  // Главная карточка — glassmorphism
   infoCard: {
-    background: '#151B28', border: '1px solid #1E2530',
-    borderRadius: '16px', padding: '1.25rem',
+    background: 'rgba(21,27,40,0.9)',
+    backdropFilter: 'blur(20px)',
+    WebkitBackdropFilter: 'blur(20px)',
+    border: '1px solid rgba(255,255,255,0.08)',
+    borderRadius: '20px',
+    overflow: 'hidden',
   },
-  infoSection: { marginBottom: '1.25rem' },
-  infoLabel: {
-    color: '#4A5568', fontSize: '0.7rem', fontWeight: '700',
-    textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.75rem',
+
+  // Hero-полоса карточки
+  cardHero: {
+    display: 'flex', alignItems: 'center', gap: '14px',
+    padding: '18px 20px',
+    background: 'linear-gradient(135deg, rgba(0,229,255,0.07) 0%, transparent 65%)',
+    borderBottom: '1px solid rgba(255,255,255,0.05)',
   },
-  infoRow: { display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #1E2530' },
-  infoKey: { color: '#6B7280', fontSize: '0.8rem' },
-  infoVal: { color: '#E2E8F0', fontSize: '0.8rem', fontWeight: '600', textAlign: 'right', maxWidth: '180px', wordBreak: 'break-word' },
-  viewerCard: {
-    background: '#151B28', border: '1px solid #1E2530',
-    borderRadius: '16px', overflow: 'hidden',
+  cardHeroIcon: {
+    width: '46px', height: '46px',
+    background: 'rgba(0,229,255,0.1)',
+    border: '1px solid rgba(0,229,255,0.18)',
+    borderRadius: '13px',
+    display: 'flex', alignItems: 'center', justifyContent: 'center',
+    color: '#00E5FF', flexShrink: 0,
   },
-  viewerBar: {
+  cardTitle: {
+    color: '#E2E8F0', fontSize: '0.92rem', fontWeight: '700',
+    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+  },
+  cardMeta: { color: '#4A5568', fontSize: '0.73rem', marginTop: '3px' },
+
+  // Строка метрик (Сумма / Категория / Поставщик)
+  metricsRow: {
+    display: 'flex', gap: '10px',
+    padding: '14px 20px',
+    borderBottom: '1px solid rgba(255,255,255,0.05)',
+    flexWrap: 'wrap',
+  },
+  metricBox: {
+    flex: 1, minWidth: '110px',
+    background: 'rgba(255,255,255,0.03)',
+    border: '1px solid rgba(255,255,255,0.06)',
+    borderRadius: '12px',
+    padding: '10px 14px',
+  },
+  metricLabel: {
+    color: '#4A5568', fontSize: '0.62rem', fontWeight: '700',
+    textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: '5px',
+  },
+
+  // Сетка детальных полей
+  detailBody: { padding: '14px 20px 18px' },
+  detailSectionLabel: {
+    color: '#4A5568', fontSize: '0.62rem', fontWeight: '700',
+    textTransform: 'uppercase', letterSpacing: '0.07em',
+    marginBottom: '10px',
+  },
+  detailFieldsGrid: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: '0 28px',
+  },
+  detailFieldItem: {
+    display: 'flex', justifyContent: 'space-between', alignItems: 'baseline',
+    padding: '6px 0',
+    borderBottom: '1px solid rgba(255,255,255,0.04)',
+    gap: '8px',
+  },
+  detailFieldKey: { color: '#6B7280', fontSize: '0.77rem', flexShrink: 0 },
+  detailFieldVal: { color: '#CBD5E0', fontSize: '0.77rem', fontWeight: '600', textAlign: 'right', wordBreak: 'break-all' },
+
+  // Статус оплаты
+  paymentSection: {
+    display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap',
+    padding: '12px 20px',
+    borderTop: '1px solid rgba(255,255,255,0.05)',
+  },
+
+  // Кнопка анализа
+  analyzeBtn: (disabled) => ({
+    display: 'block', width: '100%',
+    background: disabled ? '#1E2530' : 'linear-gradient(90deg, #00C8E0 0%, #0070FF 100%)',
+    color: disabled ? '#4A5568' : '#0B0F17',
+    border: 'none', padding: '11px',
+    borderRadius: '12px', fontWeight: '800',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    fontSize: '0.9rem', opacity: disabled ? 0.6 : 1,
+    transition: 'opacity 0.2s',
+    margin: '12px 20px 18px', width: 'calc(100% - 40px)',
+  }),
+
+  // Секция просмотра файла (коллапс)
+  viewerOuter: {
+    background: 'rgba(21,27,40,0.9)',
+    backdropFilter: 'blur(16px)',
+    WebkitBackdropFilter: 'blur(16px)',
+    border: '1px solid rgba(255,255,255,0.07)',
+    borderRadius: '16px',
+    overflow: 'hidden',
+    marginTop: '12px',
+  },
+  viewerHeader: {
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    padding: '0.75rem 1rem', borderBottom: '1px solid #1E2530',
+    padding: '13px 16px',
+    cursor: 'pointer', userSelect: 'none',
   },
-  viewerBarTitle: { color: '#CBD5E0', fontSize: '0.82rem', fontWeight: '600' },
+  viewerHeaderTitle: { color: '#9CA3AF', fontSize: '0.85rem', fontWeight: '600' },
+  downloadLink: {
+    display: 'inline-flex', alignItems: 'center', gap: '5px',
+    padding: '5px 12px',
+    background: 'rgba(0,229,255,0.08)',
+    border: '1px solid rgba(0,229,255,0.25)',
+    borderRadius: '8px',
+    color: '#00E5FF', fontSize: '0.75rem', fontWeight: '600',
+    textDecoration: 'none',
+    transition: 'background 0.2s',
+  },
 };
