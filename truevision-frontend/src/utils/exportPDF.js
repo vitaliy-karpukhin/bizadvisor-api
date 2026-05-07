@@ -10,6 +10,12 @@ const CAT_LABELS = {
   software: 'ПО', expense: 'Расход', tax: 'Налог', other: 'Прочее',
 };
 
+function rowColor(category) {
+  if (category === 'income' || category === 'revenue') return { bg: '#F0FFF4', text: '#276749' };
+  if (category === 'tax') return { bg: '#FFFFF0', text: '#975A16' };
+  return { bg: '#FFF5F5', text: '#9B2C2C' };
+}
+
 function fmt(n) {
   return Number(n).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 }
@@ -18,14 +24,17 @@ export async function exportTransactionsPDF({ items, totalIncome, totalExpense, 
   const now = new Date().toLocaleDateString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric' });
   const periodLabel = PERIOD_LABELS[period] || period;
 
-  const rows = items.map((item, i) => `
-    <tr style="background:${i % 2 === 0 ? '#ffffff' : '#F8FAFC'};">
+  const rows = items.map(item => {
+    const { bg, text } = rowColor(item.category);
+    return `
+    <tr style="background:${bg};">
       <td style="padding:9px 12px;font-size:12px;color:#1E2530;border-bottom:1px solid #E6EAF0">${item.date || '—'}</td>
       <td style="padding:9px 12px;font-size:12px;color:#1E2530;border-bottom:1px solid #E6EAF0">${item.vendor || '—'}</td>
       <td style="padding:9px 12px;font-size:12px;color:#555;border-bottom:1px solid #E6EAF0">${CAT_LABELS[item.category] || item.category || '—'}</td>
-      <td style="padding:9px 12px;font-size:12px;color:#1E2530;text-align:right;border-bottom:1px solid #E6EAF0">${fmt(item.amount)}</td>
+      <td style="padding:9px 12px;font-size:12px;font-weight:600;color:${text};text-align:right;border-bottom:1px solid #E6EAF0">${fmt(item.amount)}</td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
 
   const el = document.createElement('div');
   el.style.cssText = 'position:absolute;left:-9999px;top:0;width:794px;background:#ffffff;font-family:Arial,Helvetica,sans-serif;';
