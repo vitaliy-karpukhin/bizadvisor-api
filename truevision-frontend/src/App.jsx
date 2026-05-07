@@ -4,6 +4,7 @@ import { LangProvider } from './context/LangContext';
 import MainLayout from './layouts/MainLayout';
 import ProtectedRoute from './components/ProtectedRoute';
 import axios from 'axios';
+import { startKeepAlive } from './api/client';
 
 // Импорт страниц
 import Login from './pages/Login';
@@ -29,6 +30,7 @@ const AuthWatcher = ({ children }) => {
         await axios.get('/api/auth/me', {
           headers: { Authorization: `Bearer ${token}` }
         });
+        startKeepAlive();
       } catch (err) {
         if (err.response?.status === 401 || err.response?.status === 404) {
           localStorage.clear();

@@ -4,7 +4,7 @@ import { BarChart, Bar, XAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
 import { s } from './styles';
 import { StatCard, NotificationItem } from './components';
 import Skeleton, { SkeletonCard } from '../../components/Skeleton.jsx';
-import api from '../../api/client';
+import api, { cachedGet } from '../../api/client';
 import { useExport } from '../../hooks/useExport';
 import { ActionIcons } from '../../components/Icons.jsx';
 
@@ -49,15 +49,15 @@ export default function Dashboard() {
     setLoading(true);
 
     Promise.all([
-      api.get(`/dashboard?period=${period}`),
-      api.get('/dashboard/chart-data?period=week'),
-      api.get('/dashboard/forecast'),
+      cachedGet(`/dashboard?period=${period}`),
+      cachedGet('/dashboard/chart-data?period=week'),
+      cachedGet('/dashboard/forecast'),
     ])
-      .then(([metricsRes, chartRes, forecastRes]) => {
+      .then(([metricsData, chartData, forecastData]) => {
         if (cancelled) return;
-        setMetrics(metricsRes.data);
-        setChartData(chartRes.data);
-        setForecast(forecastRes.data);
+        setMetrics(metricsData);
+        setChartData(chartData);
+        setForecast(forecastData);
       })
       .catch((err) => console.error('Dashboard fetch error:', err))
       .finally(() => { if (!cancelled) setLoading(false); });

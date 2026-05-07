@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Skeleton from '../../components/Skeleton.jsx';
-import api from '../../api/client';
+import api, { cachedGet } from '../../api/client';
 import { useExport } from '../../hooks/useExport';
 import { ActionIcons } from '../../components/Icons.jsx';
 import { exportTransactionsPDF } from '../../utils/exportPDF';
@@ -239,8 +239,8 @@ export default function Transactions() {
 
   const loadData = () => {
     setLoading(true);
-    api.get(`/dashboard/transactions?period=${period}&type=all`)
-      .then(r => setData(r.data))
+    cachedGet(`/dashboard/transactions?period=${period}&type=all`)
+      .then(data => setData(data))
       .catch(console.error)
       .finally(() => setLoading(false));
   };
