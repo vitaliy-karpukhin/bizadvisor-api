@@ -3,6 +3,7 @@ import Skeleton from '../../components/Skeleton.jsx';
 import api from '../../api/client';
 import { useExport } from '../../hooks/useExport';
 import { ActionIcons } from '../../components/Icons.jsx';
+import { exportTransactionsPDF } from '../../utils/exportPDF';
 
 const PERIODS = { week: 'Неделя', month: 'Месяц', year: 'Год', all: 'Всё время' };
 const TYPES   = { all: 'Все', income: 'Доходы', expense: 'Расходы', tax: 'Налоги' };
@@ -331,6 +332,17 @@ export default function Transactions() {
             }}
           >
             <ActionIcons.Download /> {exportLoading ? '...' : 'CSV'}
+          </button>
+          <button
+            onClick={() => exportTransactionsPDF({ items: filteredItems, totalIncome, totalExpense, totalNet, period })}
+            style={{
+              background: 'transparent', border: '1px solid #1E2530',
+              color: '#9CA3AF', padding: '6px 14px', borderRadius: '10px',
+              fontSize: '0.78rem', fontWeight: '600', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', gap: '6px', whiteSpace: 'nowrap',
+            }}
+          >
+            <ActionIcons.Download /> PDF
           </button>
         </div>
       </div>

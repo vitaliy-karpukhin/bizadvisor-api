@@ -207,7 +207,7 @@ export const s = {
     border: '1px solid rgba(255,255,255,0.07)',
     borderRadius: '16px',
     overflow: 'hidden',
-    marginTop: '12px',
+    marginBottom: '16px',
   },
   viewerHeader: {
     display: 'flex', justifyContent: 'space-between', alignItems: 'center',

@@ -132,6 +132,57 @@ function DocDetail({ doc, onBack, onAnalyzed }) {
         <UIIcons.ChevronLeft /> Все документы
       </button>
 
+      {/* ── Просмотр файла (коллапс) ── */}
+      <div style={s.viewerOuter}>
+        <div
+          style={s.viewerHeader}
+          onClick={() => setViewerOpen(o => !o)}
+          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
+          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+        >
+          <span style={s.viewerHeaderTitle}>Просмотр файла</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            {viewerUrl && (
+              <a
+                href={viewerUrl}
+                download={doc.filename}
+                style={s.downloadLink}
+                onClick={e => e.stopPropagation()}
+              >
+                ↓ Скачать
+              </a>
+            )}
+            <span style={{ color: '#4A5568', fontSize: '1.1rem', lineHeight: 1, transition: 'transform 0.2s', display: 'block', transform: viewerOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>
+              ▾
+            </span>
+          </div>
+        </div>
+
+        {viewerOpen && (
+          <>
+            {viewerLoading && (
+              <div style={{ padding: '3rem', textAlign: 'center', color: '#4A5568' }}>Загрузка...</div>
+            )}
+            {!viewerLoading && !viewerUrl && (
+              <div style={{ padding: '3rem', textAlign: 'center', color: '#4A5568' }}>Не удалось загрузить файл</div>
+            )}
+            {!viewerLoading && viewerUrl && isPdf && (
+              <iframe src={viewerUrl} title={doc.filename} style={{ width: '100%', height: '70vh', border: 'none', display: 'block' }} />
+            )}
+            {!viewerLoading && viewerUrl && isImage && (
+              <div style={{ padding: '1.5rem', display: 'flex', justifyContent: 'center', background: '#0B0F17' }}>
+                <img src={viewerUrl} alt={doc.filename} style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: '8px' }} />
+              </div>
+            )}
+            {!viewerLoading && viewerUrl && !isPdf && !isImage && (
+              <div style={{ padding: '3rem', textAlign: 'center', color: '#4A5568', fontSize: '0.85rem' }}>
+                Просмотр недоступен для этого типа файла.
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
       {/* ── Главная карточка ── */}
       <div style={s.infoCard}>
 
@@ -206,57 +257,6 @@ function DocDetail({ doc, onBack, onAnalyzed }) {
           <button style={s.analyzeBtn(analyzing)} onClick={handleAnalyze} disabled={analyzing}>
             {analyzing ? 'Анализируется...' : currentDoc.status === 'processing_failed' ? 'Повторить анализ' : 'Анализировать документ'}
           </button>
-        )}
-      </div>
-
-      {/* ── Просмотр файла (коллапс) ── */}
-      <div style={s.viewerOuter}>
-        <div
-          style={s.viewerHeader}
-          onClick={() => setViewerOpen(o => !o)}
-          onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
-          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-        >
-          <span style={s.viewerHeaderTitle}>Просмотр файла</span>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {viewerUrl && (
-              <a
-                href={viewerUrl}
-                download={doc.filename}
-                style={s.downloadLink}
-                onClick={e => e.stopPropagation()}
-              >
-                ↓ Скачать
-              </a>
-            )}
-            <span style={{ color: '#4A5568', fontSize: '1.1rem', lineHeight: 1, transition: 'transform 0.2s', display: 'block', transform: viewerOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>
-              ▾
-            </span>
-          </div>
-        </div>
-
-        {viewerOpen && (
-          <>
-            {viewerLoading && (
-              <div style={{ padding: '3rem', textAlign: 'center', color: '#4A5568' }}>Загрузка...</div>
-            )}
-            {!viewerLoading && !viewerUrl && (
-              <div style={{ padding: '3rem', textAlign: 'center', color: '#4A5568' }}>Не удалось загрузить файл</div>
-            )}
-            {!viewerLoading && viewerUrl && isPdf && (
-              <iframe src={viewerUrl} title={doc.filename} style={{ width: '100%', height: '70vh', border: 'none', display: 'block' }} />
-            )}
-            {!viewerLoading && viewerUrl && isImage && (
-              <div style={{ padding: '1.5rem', display: 'flex', justifyContent: 'center', background: '#0B0F17' }}>
-                <img src={viewerUrl} alt={doc.filename} style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain', borderRadius: '8px' }} />
-              </div>
-            )}
-            {!viewerLoading && viewerUrl && !isPdf && !isImage && (
-              <div style={{ padding: '3rem', textAlign: 'center', color: '#4A5568', fontSize: '0.85rem' }}>
-                Просмотр недоступен для этого типа файла.
-              </div>
-            )}
-          </>
         )}
       </div>
     </div>
