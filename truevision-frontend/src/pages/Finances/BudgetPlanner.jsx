@@ -185,7 +185,11 @@ export default function BudgetPlanner({ monthlyIncome }) {
         rawBudget.current = withCats;
         setBudget(localizeBudget(withCats, t));
       })
-      .catch(console.error);
+      .catch(() => {
+        const fallback = { income: 0, categories: t.bud_defaultCategories };
+        rawBudget.current = fallback;
+        setBudget(fallback);
+      });
   }, []);
 
   // Повторная локализация при смене языка
