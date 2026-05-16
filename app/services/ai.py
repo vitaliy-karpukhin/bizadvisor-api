@@ -1,10 +1,13 @@
 import os
+import base64
+import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def extract_with_ai(text: str, language: str) -> str:
-    """
-    Извлечение финансовых данных из документа через OpenAI.
-    """
+    """Извлечение финансовых данных из документа через OpenAI (текстовые PDF)."""
     if language == "de":
         prompt = f"""
         Extrahiere Finanzinformationen aus diesem Dokument.
@@ -39,6 +42,88 @@ def extract_with_ai(text: str, language: str) -> str:
         model="gpt-4o-mini", messages=[{"role": "user", "content": prompt}]
     )
     return response.choices[0].message.content
+
+
+def extract_financial_data_from_image(image_bytes: bytes) -> dict:
+    """
+    Извлекает финансовые данные из изображения (image-based PDF) через OpenAI Vision.
+    Возвращает {"events": [...], "document_type": "...", "vendor": "..."}
+    """
+    from openai import OpenAI
+
+    b64 = base64.standard_b64encode(image_bytes).decode("utf-8")
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+    prompt = """Analysiere dieses Finanzdokument und extrahiere alle Finanzdaten.
+
+Gib NUR valides JSON zurück (kein Markdown, keine Erklärungen), in diesem Format:
+{
+  "document_type": "Einkommenssituation|Rechnung|Kontoauszug|Steuerbescheid|Sonstiges",
+  "vendor": "Name der Person oder Firma (null wenn nicht erkennbar)",
+  "currency": "EUR",
+  "events": [
+    {
+      "amount": 4500.00,
+      "category": "income|revenue|expense|tax|other",
+      "label": "kurze Bezeichnung",
+      "period": "monthly|yearly|once"
+    }
+  ]
+}
+
+Regeln:
+- Bei "Einkommenssituation": bevorzuge monatliche Beträge, category = "income"
+- Bei Rechnung/Ausgabe: category = "expense"
+- Bei Steuer: category = "tax"
+- Beträge im deutschen Format: 4.500,00 → 4500.00
+- Falls ein Betrag sowohl monatlich als auch jährlich angegeben ist: nimm den monatlichen
+- vendor: Personen- oder Firmenname aus dem Dokument"""
+
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        max_tokens=512,
+        messages=[
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": f"data:image/png;base64,{b64}"},
+                    },
+                    {"type": "text", "text": prompt},
+                ],
+            }
+        ],
+    )
+
+    raw = response.choices[0].message.content.strip()
+    logger.info(f"GPT-4o Vision raw response: {raw[:300]}")
+
+    # Убираем возможные markdown-блоки
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+        raw = raw.rsplit("```", 1)[0]
+
+    parsed = json.loads(raw)
+    events = []
+    for ev in parsed.get("events", []):
+        amount = float(ev.get("amount", 0))
+        if amount <= 0:
+            continue
+        events.append({
+            "amount": round(amount, 2),
+            "category": ev.get("category", "other"),
+            "vendor": parsed.get("vendor"),
+            "currency": parsed.get("currency", "EUR"),
+        })
+
+    return {
+        "events": events,
+        "document_type": parsed.get("document_type", "Sonstiges"),
+        "vendor": parsed.get("vendor"),
+    }
 
 
 def get_mock_recommendations(user_id: int):

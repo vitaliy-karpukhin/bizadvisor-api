@@ -9,7 +9,6 @@ export const s = {
   },
   card: {
     width: '100%',
-    maxWidth: '640px',
     background: 'rgba(11,15,23,0.72)',
     backdropFilter: 'blur(24px)',
     WebkitBackdropFilter: 'blur(24px)',

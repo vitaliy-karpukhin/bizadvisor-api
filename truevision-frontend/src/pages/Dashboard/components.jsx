@@ -34,9 +34,19 @@ export function NotificationItem({ type, title, text, time }) {
 }
 
 // ЭКСПОРТ 2: Карточки статистики (ТО, ЧЕГО НЕ ХВАТАЛО)
-export function StatCard({ title, value, change, trend, desc }) {
+export function StatCard({ title, value, change, trend, desc, onClick }) {
+  const clickable = Boolean(onClick);
   return (
-    <div style={s.statCard}>
+    <div
+      onClick={onClick}
+      style={{
+        ...s.statCard,
+        cursor: clickable ? 'pointer' : 'default',
+        transition: 'border-color 0.2s, transform 0.15s',
+      }}
+      onMouseEnter={e => { if (clickable) { e.currentTarget.style.borderColor = '#00E5FF55'; e.currentTarget.style.transform = 'translateY(-2px)'; } }}
+      onMouseLeave={e => { if (clickable) { e.currentTarget.style.borderColor = '#1E2530'; e.currentTarget.style.transform = 'none'; } }}
+    >
       <div style={{ color: '#6B7280', fontSize: '0.65rem', textTransform: 'uppercase', marginBottom: '4px' }}>
         {title}
       </div>

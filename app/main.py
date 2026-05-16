@@ -13,9 +13,11 @@ from app.models.user import User
 from app.models.company import Company
 from app.models.project import Project
 from app.models.notification import Notification
+from app.models.budget import Budget
 
 # Routers
 from app.routes import auth, protected, projects, dashboard, chat
+from app.routes.budget import router as budget_router
 from app.routes.upload import router as documents_router
 from app.routes.company import router as company_router
 from app.routes.notifications import router as notifications_router
@@ -146,6 +148,7 @@ app.include_router(documents_router, prefix="/documents", tags=["documents"])
 app.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
 app.include_router(chat.router, prefix="/chat", tags=["AI Chat"])
 app.include_router(notifications_router, prefix="/notifications", tags=["notifications"])
+app.include_router(budget_router, prefix="/budget", tags=["budget"])
 
 # 6. Swagger Security Config (чтобы кнопка Authorize работала)
 def custom_openapi():

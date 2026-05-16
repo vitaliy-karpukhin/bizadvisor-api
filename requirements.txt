@@ -12,6 +12,9 @@ werkzeug==3.0.1
 
 # Для обработки PDF
 pdfplumber==0.10.3
+pymupdf>=1.24.0
+pytesseract>=0.3.10
+Pillow>=10.0.0
 
 # Для определения языка
 langdetect==1.0.9

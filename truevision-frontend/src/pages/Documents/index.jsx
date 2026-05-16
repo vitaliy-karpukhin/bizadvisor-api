@@ -5,10 +5,12 @@ import { ActionIcons, UIIcons } from '../../components/Icons.jsx';
 import ConfirmModal from '../../components/ConfirmModal.jsx';
 import Toast from '../../components/Toast.jsx';
 import Skeleton from '../../components/Skeleton.jsx';
+import { useT } from '../../locales/i18n.js';
 
 // ─── Компонент строки в списке ───────────────────────────────────────────────
 
 function DocCard({ doc, onView, onDelete }) {
+  const t = useT();
   const paymentColor = PAYMENT_COLORS[doc.payment_status] || '#4A5568';
   return (
     <div style={s.card}>
@@ -22,15 +24,12 @@ function DocCard({ doc, onView, onDelete }) {
         <div style={s.fileMeta}>
           {formatSize(doc.file_size) && <span>{formatSize(doc.file_size)}</span>}
           {doc.created_at && <span style={{ color: '#2D3748' }}>·</span>}
-          {doc.created_at && <span>{new Date(doc.created_at).toLocaleDateString('ru-RU')}</span>}
+          {doc.created_at && <span>{new Date(doc.created_at).toLocaleDateString('de-DE')}</span>}
           <span style={{ color: '#2D3748' }}>·</span>
-          <span style={s.badge(doc.status)}>{STATUS_LABELS[doc.status] || doc.status}</span>
+          <span style={s.badge(doc.status)}>{t[`doc_status_${doc.status}`] || STATUS_LABELS[doc.status] || doc.status}</span>
           {doc.status === 'analyzed' && doc.payment_status && (
-            <span style={{
-              padding: '2px 8px', borderRadius: '20px', fontSize: '0.68rem', fontWeight: '600',
-              background: `${paymentColor}20`, color: paymentColor, whiteSpace: 'nowrap',
-            }}>
-              {PAYMENT_LABELS[doc.payment_status] || doc.payment_status}
+            <span style={{ padding: '2px 8px', borderRadius: '20px', fontSize: '0.68rem', fontWeight: '600', background: `${paymentColor}20`, color: paymentColor, whiteSpace: 'nowrap' }}>
+              {t[`doc_pay_${doc.payment_status}`] || PAYMENT_LABELS[doc.payment_status] || doc.payment_status}
             </span>
           )}
         </div>
@@ -38,12 +37,8 @@ function DocCard({ doc, onView, onDelete }) {
 
       {/* Кнопки */}
       <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
-        <button style={s.btn('secondary', false)} onClick={() => onView(doc)}>Просмотр</button>
-        <button
-          style={s.btn('destructive', false)}
-          onClick={() => onDelete(doc)}
-          title="Удалить"
-        >
+        <button style={s.btn('secondary', false)} onClick={() => onView(doc)}>{t.doc_view}</button>
+        <button style={s.btn('destructive', false)} onClick={() => onDelete(doc)} title={t.delete}>
           ✕
         </button>
       </div>
@@ -57,12 +52,13 @@ const HIGHLIGHT_KEYS = new Set(['amount', 'category', 'vendor']);
 const WIDE_KEYS      = new Set(['iban', 'bic', 'empfaenger', 'rechnung_nr']);
 
 const PS_CONFIG = {
-  pending: { label: 'Ожидает оплаты', color: '#F6AD55' },
-  paid:    { label: 'Оплачен',        color: '#68D391' },
-  overdue: { label: 'Просрочен',      color: '#FC8181' },
+  pending: { color: '#F6AD55' },
+  paid:    { color: '#68D391' },
+  overdue: { color: '#FC8181' },
 };
 
 function DocDetail({ doc, onBack, onAnalyzed }) {
+  const t = useT();
   const [viewerUrl,     setViewerUrl]     = useState(null);
   const [viewerLoading, setViewerLoading] = useState(true);
   const [viewerOpen,    setViewerOpen]    = useState(false);
@@ -129,7 +125,7 @@ function DocDetail({ doc, onBack, onAnalyzed }) {
     <div style={s.page}>
       {toast && <Toast message={toast} onClose={() => setToast(null)} />}
       <button style={s.detailBack} onClick={onBack}>
-        <UIIcons.ChevronLeft /> Все документы
+        <UIIcons.ChevronLeft /> {t.doc_allDocs}
       </button>
 
       {/* ── Просмотр файла (коллапс) ── */}
@@ -140,7 +136,7 @@ function DocDetail({ doc, onBack, onAnalyzed }) {
           onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
           onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
         >
-          <span style={s.viewerHeaderTitle}>Просмотр файла</span>
+          <span style={s.viewerHeaderTitle}>{t.doc_view}</span>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             {viewerUrl && (
               <a
@@ -149,7 +145,7 @@ function DocDetail({ doc, onBack, onAnalyzed }) {
                 style={s.downloadLink}
                 onClick={e => e.stopPropagation()}
               >
-                ↓ Скачать
+                {t.doc_download}
               </a>
             )}
             <span style={{ color: '#4A5568', fontSize: '1.1rem', lineHeight: 1, transition: 'transform 0.2s', display: 'block', transform: viewerOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>
@@ -161,10 +157,10 @@ function DocDetail({ doc, onBack, onAnalyzed }) {
         {viewerOpen && (
           <>
             {viewerLoading && (
-              <div style={{ padding: '3rem', textAlign: 'center', color: '#4A5568' }}>Загрузка...</div>
+              <div style={{ padding: '3rem', textAlign: 'center', color: '#4A5568' }}>{t.loading}</div>
             )}
             {!viewerLoading && !viewerUrl && (
-              <div style={{ padding: '3rem', textAlign: 'center', color: '#4A5568' }}>Не удалось загрузить файл</div>
+              <div style={{ padding: '3rem', textAlign: 'center', color: '#4A5568' }}>{t.doc_loadError}</div>
             )}
             {!viewerLoading && viewerUrl && isPdf && (
               <iframe src={viewerUrl} title={doc.filename} style={{ width: '100%', height: '70vh', border: 'none', display: 'block' }} />
@@ -176,7 +172,7 @@ function DocDetail({ doc, onBack, onAnalyzed }) {
             )}
             {!viewerLoading && viewerUrl && !isPdf && !isImage && (
               <div style={{ padding: '3rem', textAlign: 'center', color: '#4A5568', fontSize: '0.85rem' }}>
-                Просмотр недоступен для этого типа файла.
+                {t.doc_noPreview}
               </div>
             )}
           </>
@@ -193,7 +189,7 @@ function DocDetail({ doc, onBack, onAnalyzed }) {
             <div style={s.cardTitle}>{currentDoc.filename}</div>
             <div style={s.cardMeta}>{formatSize(currentDoc.file_size)} · {dateStr}</div>
           </div>
-          <span style={s.badge(currentDoc.status)}>{STATUS_LABELS[currentDoc.status] || currentDoc.status}</span>
+          <span style={s.badge(currentDoc.status)}>{t[`doc_status_${currentDoc.status}`] || STATUS_LABELS[currentDoc.status] || currentDoc.status}</span>
         </div>
 
         {/* Метрики */}
@@ -213,7 +209,7 @@ function DocDetail({ doc, onBack, onAnalyzed }) {
         {/* Детали */}
         {isAnalyzed && detailEntries.length > 0 && (
           <div style={s.detailBody}>
-            <div style={s.detailSectionLabel}>Детали</div>
+            <div style={s.detailSectionLabel}>{t.doc_details}</div>
             <div style={s.detailFieldsGrid}>
               {detailEntries.map(([k, v]) => (
                 <div key={k} style={{ ...s.detailFieldItem, ...(WIDE_KEYS.has(k) ? { gridColumn: 'span 2' } : {}) }}>
@@ -231,9 +227,9 @@ function DocDetail({ doc, onBack, onAnalyzed }) {
         {isAnalyzed && (
           <div style={s.paymentSection}>
             <span style={{ color: '#4A5568', fontSize: '0.72rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em', marginRight: '4px' }}>
-              Статус оплаты
+              {t.doc_paymentStatus}
             </span>
-            {Object.entries(PS_CONFIG).map(([key, { label, color }]) => (
+            {Object.entries(PS_CONFIG).map(([key, { color }]) => (
               <button
                 key={key}
                 onClick={() => handlePaymentStatus(key)}
@@ -246,7 +242,7 @@ function DocDetail({ doc, onBack, onAnalyzed }) {
                   transition: 'all 0.2s',
                 }}
               >
-                {label}
+                {t[`doc_pay_${key}`] || key}
               </button>
             ))}
           </div>
@@ -255,7 +251,7 @@ function DocDetail({ doc, onBack, onAnalyzed }) {
         {/* Кнопка анализа */}
         {!isAnalyzed && (
           <button style={s.analyzeBtn(analyzing)} onClick={handleAnalyze} disabled={analyzing}>
-            {analyzing ? 'Анализируется...' : currentDoc.status === 'processing_failed' ? 'Повторить анализ' : 'Анализировать документ'}
+            {analyzing ? t.doc_analyzing : currentDoc.status === 'processing_failed' ? t.doc_reanalyze : t.doc_analyze}
           </button>
         )}
       </div>
@@ -266,6 +262,7 @@ function DocDetail({ doc, onBack, onAnalyzed }) {
 // ─── Главный компонент ───────────────────────────────────────────────────────
 
 export default function Documents() {
+  const t = useT();
   const [docs, setDocs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -291,7 +288,7 @@ export default function Documents() {
   const uploadFile = async (file) => {
     if (!file) return;
     if (!['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'].includes(file.type)) {
-      alert('Поддерживаются только PDF, JPG, PNG');
+      alert(t.doc_onlyFormats);
       return;
     }
     setUploading(true);
@@ -355,7 +352,7 @@ export default function Documents() {
     <div style={s.page}>
       {confirmDoc && (
         <ConfirmModal
-          title="Удалить документ?"
+          title={t.doc_deleteConfirm}
           message="Это действие нельзя отменить."
           onConfirm={confirmDelete}
           onCancel={() => setConfirmDoc(null)}
@@ -370,7 +367,7 @@ export default function Documents() {
               />
               <div>
                 <div style={{ color: '#E2E8F0', fontSize: '0.82rem', fontWeight: '600' }}>
-                  Удалить связанные транзакции
+                  {t.doc_deleteWithEvents}
                 </div>
                 <div style={{ color: '#4A5568', fontSize: '0.72rem', marginTop: '2px' }}>
                   {confirmDoc.events_count} операци{confirmDoc.events_count === 1 ? 'я' : confirmDoc.events_count < 5 ? 'и' : 'й'} будут удалены
@@ -398,9 +395,9 @@ export default function Documents() {
           <ActionIcons.Upload />
         </div>
         <div style={{ color: '#CBD5E0', fontSize: '0.9rem', marginBottom: '0.25rem' }}>
-          {uploading ? 'Загружается...' : 'Перетащите файл или нажмите для выбора'}
+          {uploading ? t.doc_uploading : t.doc_uploadDrop}
         </div>
-        <div style={{ color: '#4A5568', fontSize: '0.75rem' }}>PDF, JPG, PNG — счета, договоры, акты</div>
+        <div style={{ color: '#4A5568', fontSize: '0.75rem' }}>{t.doc_uploadHint}</div>
         <input
           ref={inputRef}
           type="file"
@@ -419,7 +416,7 @@ export default function Documents() {
         }}>
           <div>
             <span style={{ color: '#F6AD55', fontWeight: '600', fontSize: '0.85rem' }}>
-              ⚠ Документ уже загружен:
+              {t.doc_duplicate}
             </span>
             <span style={{ color: '#CBD5E0', fontSize: '0.85rem', marginLeft: '8px' }}>
               «{dupWarning.filename}»
@@ -430,7 +427,7 @@ export default function Documents() {
               onClick={() => { setDupWarning(null); setSelectedDoc(docs.find(d => d.id === dupWarning.existingId) || null); }}
               style={{ background: '#1E2530', border: 'none', color: '#CBD5E0', padding: '6px 14px', borderRadius: '10px', fontSize: '0.78rem', fontWeight: '600', cursor: 'pointer' }}
             >
-              Открыть существующий
+              {t.doc_openExisting}
             </button>
             <button
               onClick={() => setDupWarning(null)}
@@ -454,7 +451,7 @@ export default function Documents() {
         </div>
       ))}
       {!loading && docs.length === 0 && (
-        <div style={s.empty}>Нет документов. Загрузите первый счёт или договор.</div>
+        <div style={s.empty}>{t.doc_noDocuments}</div>
       )}
       {!loading && docs.map(doc => (
         <DocCard

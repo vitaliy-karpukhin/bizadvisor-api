@@ -1,15 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import Skeleton from '../../components/Skeleton.jsx';
-import { useLang } from '../../context/LangContext.jsx';
 import { useExport } from '../../hooks/useExport';
 import api from '../../api/client';
 import { s, PERIOD_LABELS, INCOME_COLORS, EXPENSE_COLORS, CAT_LABELS } from './styles';
+import BudgetPlanner from './BudgetPlanner.jsx';
+import { useT } from '../../locales/i18n.js';
 import './finances.css';
-
-const TABS = {
-  income:  { ru: 'Доходы',  de: 'Einnahmen', color: '#059669', bg: '#064E3B', arrow: '↑' },
-  expense: { ru: 'Расходы', de: 'Ausgaben',  color: '#DC2626', bg: '#7C2D12', arrow: '↓' },
-};
 
 const CategoryItem = ({ label, amount, percentage, color }) => (
   <div style={s.catCard}>
@@ -34,8 +30,14 @@ const CategoryItem = ({ label, amount, percentage, color }) => (
 );
 
 export default function Finances() {
-  const { lang } = useLang();
+  const t = useT();
   const { download, loading: exportLoading } = useExport();
+
+  const TABS = {
+    income:  { label: t.fin_income,   color: '#059669', bg: '#064E3B', arrow: '↑' },
+    expense: { label: t.fin_expenses, color: '#DC2626', bg: '#7C2D12', arrow: '↓' },
+    budget:  { label: t.fin_budget,   color: '#00E5FF', bg: '#0B3B44', arrow: '◈' },
+  };
 
   const [tab, setTab] = useState('income');
   const [period, setPeriod] = useState('month');
@@ -43,7 +45,6 @@ export default function Finances() {
   const [docsCount, setDocsCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  const isRu = lang === 'ru';
   const tabMeta = TABS[tab];
   const colors = tab === 'income' ? INCOME_COLORS : EXPENSE_COLORS;
 
@@ -78,48 +79,49 @@ export default function Finances() {
         {/* Табы */}
         <div style={s.tabGroup}>
           {Object.entries(TABS).map(([key, meta]) => (
-            <button
-              key={key}
-              style={s.tab(tab === key, meta.color)}
-              onClick={() => setTab(key)}
-            >
-              {isRu ? meta.ru : meta.de}
+            <button key={key} style={s.tab(tab === key, meta.color)} onClick={() => setTab(key)}>
+              {meta.label}
             </button>
           ))}
         </div>
 
-        <div style={s.divider} />
-
-        {/* Период */}
-        {Object.entries(PERIOD_LABELS).map(([key, label]) => (
-          <button key={key} style={s.pill(period === key)} onClick={() => setPeriod(key)}>
-            {label}
-          </button>
-        ))}
-
-        {/* CSV */}
-        <button
-          style={s.csvBtn}
-          onClick={() => download({ period, type: tab })}
-          disabled={exportLoading}
-        >
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-            <polyline points="7 10 12 15 17 10"/>
-            <line x1="12" y1="15" x2="12" y2="3"/>
-          </svg>
-          {exportLoading ? '...' : 'CSV'}
-        </button>
+        {tab !== 'budget' && (
+          <>
+            <div style={s.divider} />
+            {Object.entries(PERIOD_LABELS).map(([key, label]) => (
+              <button key={key} style={s.pill(period === key)} onClick={() => setPeriod(key)}>
+                {label}
+              </button>
+            ))}
+            <button
+              style={s.csvBtn}
+              onClick={() => download({ period, type: tab })}
+              disabled={exportLoading}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              {exportLoading ? '...' : 'CSV'}
+            </button>
+          </>
+        )}
       </div>
 
-      {/* ── Сетка карточек ── */}
-      <div style={s.grid} className="finances-grid">
+      {/* ── Вкладка Бюджет ── */}
+      {tab === 'budget' && (
+        <BudgetPlanner monthlyIncome={data.total} />
+      )}
+
+      {/* ── Сетка карточек (Доходы / Расходы) ── */}
+      {tab !== 'budget' && <div style={s.grid} className="finances-grid">
 
         {/* Итоговая карточка */}
         <div style={s.mainCard(tabMeta.bg)}>
           <div style={s.mainCardTop}>
             <span style={{ fontSize: '1.3rem' }}>{tabMeta.arrow}</span>
-            <span style={s.mainLabel}>{isRu ? tabMeta.ru : tabMeta.de}</span>
+            <span style={s.mainLabel}>{tabMeta.label}</span>
           </div>
           <div style={s.mainAmountRow}>
             {loading ? (
@@ -134,7 +136,7 @@ export default function Finances() {
           <div style={s.badge}>
             <span>{tabMeta.arrow}</span>
             <span>{docsCount}</span>
-            <span style={s.badgeSub}>&nbsp;{isRu ? 'документов обработано' : 'Dokumente analysiert'}</span>
+            <span style={s.badgeSub}>&nbsp;{t.fin_docsAnalyzed}</span>
           </div>
           <div style={s.strip}>
             {stripItems.map((item, idx) => (
@@ -154,7 +156,7 @@ export default function Finances() {
         <div style={s.breakdownCard}>
           <div style={s.bdHeader}>
             <div style={s.bdTitle}>
-              {isRu ? 'По категориям' : 'Nach Kategorien'}
+              {t.fin_byCategories}
             </div>
             <div style={s.bdSub}>{PERIOD_LABELS[period]?.toUpperCase()}</div>
           </div>
@@ -171,7 +173,7 @@ export default function Finances() {
             ))}
             {!loading && data.items.length === 0 && (
               <div style={s.empty}>
-                {isRu ? 'Нет данных — загрузите документы' : 'Keine Daten — Dokumente hochladen'}
+                {t.fin_noData}
               </div>
             )}
             {!loading && data.items.map((item, idx) => (
@@ -186,7 +188,8 @@ export default function Finances() {
           </div>
         </div>
 
-      </div>
+      </div>}
+
     </div>
   );
 }

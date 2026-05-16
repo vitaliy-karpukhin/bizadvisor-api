@@ -94,7 +94,7 @@ export const s = {
     position: 'relative',
     overflow: 'hidden',
     boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
-    minHeight: '260px',
+    minHeight: '100%',
   }),
   mainCardTop: {
     display: 'flex',

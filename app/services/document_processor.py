@@ -34,25 +34,34 @@ def process_document(document: Document, db: Session):
         extracted_text = _extract_text_from_file(document.file_path)
         logger.info(f"Extracted {len(extracted_text)} characters")
 
-        # Шаг 2: Определение языка
-        language = _detect_language(extracted_text)
-        logger.info(f"Detected language: {language}")
+        # Шаг 1б: Если текст пустой (image-based PDF) — используем Claude Vision
+        vision_meta = {}
+        if not extracted_text:
+            logger.info("No text found — attempting Vision API extraction")
+            financial_events, vision_meta = _extract_via_vision(document.file_path)
+            language = "de"
+        else:
+            # Шаг 2: Определение языка
+            language = _detect_language(extracted_text)
+            logger.info(f"Detected language: {language}")
 
-        # Шаг 3: Извлечение финансовых данных (список событий)
-        financial_events = _extract_financial_data(extracted_text, language)
+            # Шаг 3: Извлечение финансовых данных (список событий)
+            financial_events = _extract_financial_data(extracted_text, language)
+
         logger.info(f"Extracted {len(financial_events)} financial event(s)")
 
         # Шаг 4: Сохраняем результат в extraction_result для отображения
-        meta  = _extract_meta(extracted_text)
+        meta  = _extract_meta(extracted_text) if extracted_text else {}
         first = financial_events[0] if financial_events else {}
         document.extraction_result = {
             "language":     language,
             "events_count": len(financial_events),
             "amount":       first.get("amount", 0),
             "category":     first.get("category", "other"),
-            "vendor":       first.get("vendor") or meta.get("firma"),
+            "vendor":       first.get("vendor") or vision_meta.get("vendor") or meta.get("firma"),
             "currency":     first.get("currency", "EUR"),
             **meta,
+            **vision_meta,
         }
         document.status = "processed"
         document.language = language
@@ -80,6 +89,78 @@ def process_document(document: Document, db: Session):
         db.add(document)
         db.commit()
         raise
+
+
+def _render_pdf_page_as_png(file_path: str) -> bytes | None:
+    """Рендерит первую страницу PDF в PNG-байты для Vision API."""
+    try:
+        import fitz
+        doc = fitz.open(file_path)
+        pix = doc[0].get_pixmap(matrix=fitz.Matrix(2, 2))
+        return pix.tobytes("png")
+    except Exception as e:
+        logger.warning(f"PDF render failed: {e}")
+        return None
+
+
+def _ocr_image(image_bytes: bytes) -> str:
+    """OCR через pytesseract (требует tesseract в системе)."""
+    import pytesseract
+    from PIL import Image
+    import io
+    img = Image.open(io.BytesIO(image_bytes))
+    try:
+        return pytesseract.image_to_string(img, lang="deu+eng").strip()
+    except Exception:
+        return pytesseract.image_to_string(img).strip()
+
+
+def _extract_via_vision(file_path: str) -> tuple[list, dict]:
+    """
+    Для image-based PDF:
+    1. Рендерит страницу в PNG
+    2. Пробует OCR (pytesseract) → regex-парсинг
+    3. Если OCR недоступен — падает на Vision API (OpenAI GPT-4o)
+    Возвращает (events_list, meta_dict).
+    """
+    ext = file_path.rsplit(".", 1)[-1].lower()
+    if ext == "pdf":
+        image_bytes = _render_pdf_page_as_png(file_path)
+    elif ext in ("jpg", "jpeg", "png"):
+        with open(file_path, "rb") as f:
+            image_bytes = f.read()
+    else:
+        return [], {}
+
+    if not image_bytes:
+        return [], {}
+
+    # Попытка 1: OCR + regex (бесплатно, работает без API)
+    try:
+        ocr_text = _ocr_image(image_bytes)
+        if ocr_text:
+            logger.info(f"OCR extracted {len(ocr_text)} chars")
+            language = _detect_language(ocr_text)
+            events = _extract_financial_data(ocr_text, language)
+            meta = _extract_meta(ocr_text)
+            meta["vendor"] = _find_vendor(ocr_text) or meta.get("firma")
+            return events, meta
+    except Exception as e:
+        logger.info(f"OCR not available: {e}")
+
+    # Попытка 2: Vision API (платно)
+    try:
+        from app.services.ai import extract_financial_data_from_image
+        result = extract_financial_data_from_image(image_bytes)
+        logger.info(f"Vision API result: doc_type={result.get('document_type')}, events={len(result.get('events', []))}")
+        meta = {
+            "document_type": result.get("document_type"),
+            "vendor": result.get("vendor"),
+        }
+        return result.get("events", []), meta
+    except Exception as e:
+        logger.error(f"Vision extraction failed: {e}")
+        return [], {}
 
 
 def _extract_text_from_file(file_path: str) -> str:
@@ -302,6 +383,39 @@ def _extract_financial_data(text: str, language: str = "de") -> list:
     events   = []
 
     CUR = r"(?:\s*(?:€|EUR))?"
+
+    # ── Einkommenssituation (немецкий отчёт о доходах) ────────────────────
+    EINKOMMENS_SIGNALS = [
+        "einkommenssituation", "bereinigtes nettoeinkommen",
+        "selbstständige tätigkeit", "nichtselbstständiger tätigkeit",
+        "einkünfte aus selbst", "nettoeinkommen", "förderdaten",
+        "gewinn nach steuern",
+    ]
+    is_einkommenssituation = any(s in tl for s in EINKOMMENS_SIGNALS)
+
+    if is_einkommenssituation:
+        # Ищем месячный доход (monatlich) — предпочтительнее годового
+        monthly_amt = _find_amount(text, [
+            rf"([\d][0-9\.\,]+)\s*€\s*monatlich",
+            rf"monatlich\b[^\d\n]{{0,20}}([\d][0-9\.\,]+)\s*€?",
+            rf"Gewinn nach Steuern[:\s]*([\d][0-9\.\,]+){CUR}",
+            rf"Umsatz\s+exkl[^€\n]*?([\d][0-9\.\,]+){CUR}",
+        ])
+        yearly_amt = _find_amount(text, [
+            rf"([\d][0-9\.\,]+)\s*€\s*jährlich",
+            rf"jährlich\b[^\d\n]{{0,20}}([\d][0-9\.\,]+)\s*€?",
+        ])
+        # Извлекаем имя человека (строка перед "Selbstständige Tätigkeit")
+        name_m = re.search(
+            r"([A-ZÄÖÜ][a-zäöüß]+\s+[A-ZÄÖÜ][a-zäöüß]+)\s*\n?\s*Selbst",
+            text, re.IGNORECASE
+        )
+        person = name_m.group(1).strip() if name_m else vendor
+
+        amount = monthly_amt or (round(yearly_amt / 12, 2) if yearly_amt else 0)
+        if amount > 0:
+            events.append({"amount": amount, "category": "income", "vendor": person, "currency": currency})
+        return events
 
     # ── Определяем тип документа ──────────────────────────────────────────
     # Банковский перевод (исходящий платёж) — всегда расход

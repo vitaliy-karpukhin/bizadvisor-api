@@ -3,16 +3,14 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { s } from './styles'
 import api from '../../api/client'
 import { UIIcons, ActionIcons, NewsIcons } from '../../components/Icons.jsx'
+import { useT } from '../../locales/i18n.js'
 
 function fmt(n) {
   return Number(n).toLocaleString('de-DE', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
 }
 
 const MetricRow = ({ label, value, color = '#00E5FF', sub }) => (
-  <div style={{
-    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-    padding: '10px 0', borderBottom: '1px solid #1E2530',
-  }}>
+  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: '1px solid #1E2530' }}>
     <div>
       <div style={{ color: '#9CA3AF', fontSize: '0.78rem' }}>{label}</div>
       {sub && <div style={{ color: '#4A5568', fontSize: '0.68rem', marginTop: '2px' }}>{sub}</div>}
@@ -22,14 +20,8 @@ const MetricRow = ({ label, value, color = '#00E5FF', sub }) => (
 );
 
 const NewsRow = ({ label, color, icon: Icon }) => (
-  <div style={{
-    display: 'flex', alignItems: 'center', gap: '12px',
-    padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.04)',
-  }}>
-    <div style={{
-      color, background: `${color}18`, padding: '8px', borderRadius: '10px',
-      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-    }}>
+  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+    <div style={{ color, background: `${color}18`, padding: '8px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
       <Icon />
     </div>
     <span style={{ fontSize: '0.83rem', color: '#CBD5E0', fontWeight: '500', lineHeight: '1.4' }}>{label}</span>
@@ -44,22 +36,18 @@ const Icons = {
 
 function ChevronBtn({ isOpen }) {
   return (
-    <div style={{
-      color: '#4A5568', transition: 'transform 0.2s',
-      transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)',
-    }}>
-      ▾
-    </div>
+    <div style={{ color: '#4A5568', transition: 'transform 0.2s', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</div>
   );
 }
 
 export default function Analytics() {
+  const t = useT();
   const [open, setOpen] = useState({ growth: true, model: true, news: true });
   const toggle = k => setOpen(prev => ({ ...prev, [k]: !prev[k] }));
 
   const [lineData, setLineData] = useState([]);
-  const [metrics, setMetrics]   = useState({ income: 0, expenses: 0, business_score: 0 });
-  const [loading, setLoading]   = useState(true);
+  const [metrics,  setMetrics]  = useState({ income: 0, expenses: 0, business_score: 0 });
+  const [loading,  setLoading]  = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -100,44 +88,38 @@ export default function Analytics() {
       <div style={s.mainContent}>
         <main style={s.grid}>
 
-          {/* ─── РОСТ ДОХОДА (полная ширина) ─── */}
           <section style={s.card}>
             <div onClick={() => toggle('growth')} style={s.header}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-                <h3 style={{ ...s.title, whiteSpace: 'nowrap' }}>Рост дохода</h3>
-                {growthPct > 0 && (
-                  <div style={s.badge}><Icons.Trend /> +{growthPct}%</div>
-                )}
-                {loading && <span style={{ color: '#4A5568', fontSize: '0.72rem' }}>загрузка...</span>}
+                <h3 style={{ ...s.title, whiteSpace: 'nowrap' }}>{t.an_incomeGrowth}</h3>
+                {growthPct > 0 && <div style={s.badge}><Icons.Trend /> +{growthPct}%</div>}
+                {loading && <span style={{ color: '#4A5568', fontSize: '0.72rem' }}>{t.an_loading}</span>}
               </div>
               <ChevronBtn isOpen={open.growth} />
             </div>
 
             {open.growth && (
               <div style={{ padding: '0 1.5rem 1.5rem' }}>
-                <p style={{ ...s.subText, marginBottom: '1rem' }}>Доходы и расходы по месяцам</p>
+                <p style={{ ...s.subText, marginBottom: '1rem' }}>{t.an_chartTitle}</p>
 
-                {/* Легенда */}
                 {hasChart && (
                   <div style={{ display: 'flex', gap: '16px', marginBottom: '12px' }}>
                     <span style={{ color: '#00E5FF', fontSize: '0.72rem', fontWeight: '600' }}>
-                      {hasLine ? '━' : '▮'} Доходы
+                      {hasLine ? '━' : '▮'} {t.an_incomeLabel}
                     </span>
                     <span style={{ color: '#F687B3', fontSize: '0.72rem', fontWeight: '600' }}>
-                      {hasLine ? '╌' : '▮'} Расходы
+                      {hasLine ? '╌' : '▮'} {t.an_expensesLabel}
                     </span>
                   </div>
                 )}
 
                 <div style={{ height: '280px' }}>
                   {loading ? (
-                    <div style={{ color: '#4A5568', textAlign: 'center', paddingTop: '5rem', fontSize: '0.85rem' }}>Загрузка...</div>
+                    <div style={{ color: '#4A5568', textAlign: 'center', paddingTop: '5rem', fontSize: '0.85rem' }}>{t.an_chartLoading}</div>
                   ) : !hasChart ? (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', gap: '10px' }}>
                       <div style={{ fontSize: '2rem' }}>📊</div>
-                      <div style={{ color: '#4A5568', fontSize: '0.82rem', textAlign: 'center' }}>
-                        Загрузите документы для отображения динамики
-                      </div>
+                      <div style={{ color: '#4A5568', fontSize: '0.82rem', textAlign: 'center' }}>{t.an_chartNoData}</div>
                     </div>
                   ) : hasLine ? (
                     <ResponsiveContainer width="100%" height="100%">
@@ -153,7 +135,7 @@ export default function Analytics() {
                         <YAxis axisLine={false} tickLine={false} tick={{ fill: '#4A5568', fontSize: 11 }} tickFormatter={v => `${fmt(v)}€`} width={60} />
                         <Tooltip
                           contentStyle={{ background: '#151B28', border: '1px solid #1E2530', borderRadius: '12px', color: '#fff', fontSize: '0.82rem' }}
-                          formatter={(val, name) => [`${fmt(val)} €`, name === 'v' ? 'Доходы' : 'Расходы']}
+                          formatter={(val, name) => [`${fmt(val)} €`, name === 'v' ? t.an_incomeLabel : t.an_expensesLabel]}
                         />
                         <Area type="monotone" dataKey="v" stroke="#00E5FF" strokeWidth={2.5} fill="url(#incGrad)" dot={{ r: 3, fill: '#00E5FF', strokeWidth: 0 }} />
                         <Line type="monotone" dataKey="e" stroke="#F687B3" strokeWidth={2} strokeDasharray="5 4" dot={false} />
@@ -167,7 +149,7 @@ export default function Analytics() {
                         <YAxis axisLine={false} tickLine={false} tick={{ fill: '#4A5568', fontSize: 11 }} tickFormatter={v => `${fmt(v)}€`} width={60} />
                         <Tooltip
                           contentStyle={{ background: '#151B28', border: '1px solid #1E2530', borderRadius: '12px', color: '#fff', fontSize: '0.82rem' }}
-                          formatter={(val, name) => [`${fmt(val)} €`, name === 'v' ? 'Доходы' : 'Расходы']}
+                          formatter={(val, name) => [`${fmt(val)} €`, name === 'v' ? t.an_incomeLabel : t.an_expensesLabel]}
                         />
                         <Bar dataKey="v" name="v" fill="#00E5FF" radius={[6, 6, 0, 0]} />
                         <Bar dataKey="e" name="e" fill="#F687B3" radius={[6, 6, 0, 0]} />
@@ -179,59 +161,39 @@ export default function Analytics() {
             )}
           </section>
 
-          {/* ─── ДВА БЛОКА РЯДОМ (планшет+) ─── */}
           <div className="analytics-bottom-grid" style={{ alignItems: 'start' }}>
-
-            {/* ФИНАНСОВАЯ МОДЕЛЬ */}
             <section style={s.card}>
               <div onClick={() => toggle('model')} style={s.header}>
-                <h3 style={{ ...s.title, whiteSpace: 'nowrap' }}>Финансовая модель</h3>
+                <h3 style={{ ...s.title, whiteSpace: 'nowrap' }}>{t.an_modelTitle}</h3>
                 <ChevronBtn isOpen={open.model} />
               </div>
-
               {open.model && (
                 <div style={{ padding: '0 1.25rem 1.25rem' }}>
-                  {/* Прогресс-бар */}
                   <div style={{ marginBottom: '1rem' }}>
                     <div style={{ ...s.progressContainer, marginBottom: '6px' }}>
                       <div style={{ width: `${incPct}%`, background: '#10B981', height: '100%', borderRadius: '10px 0 0 10px', transition: 'width 0.4s' }} />
                       <div style={{ width: `${expPct}%`, background: '#F59E0B', height: '100%', borderRadius: '0 10px 10px 0', transition: 'width 0.4s' }} />
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <span style={{ color: '#10B981', fontSize: '0.68rem', fontWeight: '600' }}>● Доходы {incPct}%</span>
-                      <span style={{ color: '#F59E0B', fontSize: '0.68rem', fontWeight: '600' }}>Расходы {expPct}% ●</span>
+                      <span style={{ color: '#10B981', fontSize: '0.68rem', fontWeight: '600' }}>● {t.an_incomeLabel} {incPct}%</span>
+                      <span style={{ color: '#F59E0B', fontSize: '0.68rem', fontWeight: '600' }}>{t.an_expensesLabel} {expPct}% ●</span>
                     </div>
                   </div>
-
-                  {/* Метрики */}
+                  <MetricRow label={t.an_incomeLabel}   value={`${fmt(metrics.income)} €`}   color="#68D391" />
+                  <MetricRow label={t.an_expensesLabel} value={`${fmt(metrics.expenses)} €`} color="#FC8181" />
                   <MetricRow
-                    label="Доходы"
-                    value={`${fmt(metrics.income)} €`}
-                    color="#68D391"
-                  />
-                  <MetricRow
-                    label="Расходы"
-                    value={`${fmt(metrics.expenses)} €`}
-                    color="#FC8181"
-                  />
-                  <MetricRow
-                    label="Норма сбережений"
+                    label={t.an_savingsRate}
                     value={`${savingsRate}%`}
                     color={savingsRate >= 20 ? '#68D391' : savingsRate >= 10 ? '#F6AD55' : '#FC8181'}
-                    sub="(Доходы − Расходы) / Доходы"
+                    sub={t.an_savingsFormula}
                   />
                   <div style={{ paddingTop: '10px' }}>
-                    <MetricRow
-                      label="Рейтинг бизнеса"
-                      value={`${metrics.business_score ?? 0}%`}
-                      color="#00E5FF"
-                    />
+                    <MetricRow label={t.an_bizScore} value={`${metrics.business_score ?? 0}%`} color="#00E5FF" />
                   </div>
                 </div>
               )}
             </section>
 
-            {/* НОВОСТИ И ВОЗМОЖНОСТИ */}
             <section style={s.card}>
               <div onClick={() => toggle('news')} style={s.header}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -239,23 +201,21 @@ export default function Analytics() {
                     <Icons.File />
                   </div>
                   <div>
-                    <h3 style={{ ...s.title, fontSize: '0.95rem', whiteSpace: 'nowrap' }}>Новости и возможности</h3>
-                    <p style={{ margin: 0, fontSize: '0.7rem', color: '#4A5568' }}>4 рекомендации</p>
+                    <h3 style={{ ...s.title, fontSize: '0.95rem', whiteSpace: 'nowrap' }}>{t.an_newsTitle}</h3>
+                    <p style={{ margin: 0, fontSize: '0.7rem', color: '#4A5568' }}>{t.an_newsCount}</p>
                   </div>
                 </div>
                 <ChevronBtn isOpen={open.news} />
               </div>
-
               {open.news && (
                 <div style={{ padding: '0 1.25rem 1rem' }}>
-                  <NewsRow label="Новый депозит с доходностью 8%"  color="#F59E0B" icon={NewsIcons.Deposit} />
-                  <NewsRow label="Оптимизация налогов −15%"         color="#10B981" icon={NewsIcons.Tax}     />
-                  <NewsRow label="Рефинансирование ипотеки"         color="#3B82F6" icon={NewsIcons.Home}    />
-                  <NewsRow label="Страховой кешбэк 200 €"           color="#8B5CF6" icon={NewsIcons.Flash}   />
+                  <NewsRow label={t.an_news1} color="#F59E0B" icon={NewsIcons.Deposit} />
+                  <NewsRow label={t.an_news2} color="#10B981" icon={NewsIcons.Tax}     />
+                  <NewsRow label={t.an_news3} color="#3B82F6" icon={NewsIcons.Home}    />
+                  <NewsRow label={t.an_news4} color="#8B5CF6" icon={NewsIcons.Flash}   />
                 </div>
               )}
             </section>
-
           </div>
         </main>
       </div>

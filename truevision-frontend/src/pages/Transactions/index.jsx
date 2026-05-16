@@ -1,19 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import Skeleton from '../../components/Skeleton.jsx';
 import api, { cachedGet } from '../../api/client';
 import { useExport } from '../../hooks/useExport';
 import { ActionIcons } from '../../components/Icons.jsx';
 import { exportTransactionsPDF } from '../../utils/exportPDF';
-
-const PERIODS = { week: 'Неделя', month: 'Месяц', year: 'Год', all: 'Всё время' };
-const TYPES   = { all: 'Все', income: 'Доходы', expense: 'Расходы', tax: 'Налоги' };
-
-const CAT_LABELS = {
-  revenue: 'Доход', income: 'Доход',
-  materials: 'Материалы', personnel: 'Персонал',
-  rent: 'Аренда', insurance: 'Страховка',
-  software: 'ПО', expense: 'Расход', tax: 'Налог', other: 'Прочее',
-};
+import { useT } from '../../locales/i18n.js';
 
 const TYPE_COLORS = {
   revenue: '#68D391', income: '#68D391',
@@ -51,13 +43,12 @@ function AmountCell({ amount, category }) {
 }
 
 function CategoryBadge({ category }) {
+  const t = useT();
   const color = TYPE_COLORS[category] || '#6B7280';
+  const label = t[`cat_${category}`] || category;
   return (
-    <span style={{
-      padding: '3px 10px', borderRadius: '20px', fontSize: '0.72rem', fontWeight: '600',
-      background: `${color}22`, color, whiteSpace: 'nowrap', display: 'inline-block',
-    }}>
-      {CAT_LABELS[category] || category}
+    <span style={{ padding: '3px 10px', borderRadius: '20px', fontSize: '0.72rem', fontWeight: '600', background: `${color}22`, color, whiteSpace: 'nowrap', display: 'inline-block' }}>
+      {label}
     </span>
   );
 }
@@ -113,18 +104,7 @@ function SummaryCard({ label, value, color }) {
   );
 }
 
-const ALL_CATEGORIES = [
-  { value: 'income',    label: 'Доход' },
-  { value: 'revenue',   label: 'Выручка' },
-  { value: 'expense',   label: 'Расход' },
-  { value: 'materials', label: 'Материалы' },
-  { value: 'personnel', label: 'Персонал' },
-  { value: 'rent',      label: 'Аренда' },
-  { value: 'insurance', label: 'Страховка' },
-  { value: 'software',  label: 'ПО' },
-  { value: 'tax',       label: 'Налог' },
-  { value: 'other',     label: 'Прочее' },
-];
+const CAT_KEYS = ['income','revenue','expense','materials','personnel','rent','insurance','software','tax','other'];
 
 const inputStyle = {
   width: '100%', boxSizing: 'border-box',
@@ -133,6 +113,7 @@ const inputStyle = {
 };
 
 function AddTransactionModal({ onClose, onSaved }) {
+  const t = useT();
   const today = new Date().toISOString().slice(0, 10);
   const [form, setForm] = useState({
     vendor: '', amount: '', category: 'expense', event_date: today, is_recurring: false,
@@ -144,8 +125,8 @@ function AddTransactionModal({ onClose, onSaved }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.vendor.trim()) { setError('Укажите поставщика'); return; }
-    if (!form.amount || Number(form.amount) <= 0) { setError('Укажите сумму'); return; }
+    if (!form.vendor.trim()) { setError(t.tr_vendorRequired); return; }
+    if (!form.amount || Number(form.amount) <= 0) { setError(t.tr_amountRequired); return; }
     setSaving(true);
     setError('');
     try {
@@ -159,7 +140,7 @@ function AddTransactionModal({ onClose, onSaved }) {
       onSaved();
       onClose();
     } catch {
-      setError('Ошибка при сохранении');
+      setError(t.error);
     } finally {
       setSaving(false);
     }
@@ -176,48 +157,48 @@ function AddTransactionModal({ onClose, onSaved }) {
         padding: '1.75rem', width: '100%', maxWidth: '420px',
       }} onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h3 style={{ margin: 0, color: '#E2E8F0', fontSize: '1rem', fontWeight: '700' }}>Новая транзакция</h3>
+          <h3 style={{ margin: 0, color: '#E2E8F0', fontSize: '1rem', fontWeight: '700' }}>{t.tr_modalTitle}</h3>
           <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#4A5568', cursor: 'pointer', fontSize: '1.2rem' }}>✕</button>
         </div>
 
         <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
           <div>
-            <label style={{ color: '#6B7280', fontSize: '0.75rem', fontWeight: '600', display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Поставщик / Описание</label>
-            <input style={inputStyle} placeholder="Например: Аренда офиса" value={form.vendor} onChange={e => set('vendor', e.target.value)} />
+            <label style={{ color: '#6B7280', fontSize: '0.75rem', fontWeight: '600', display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t.tr_vendorLabel}</label>
+            <input style={inputStyle} placeholder={t.tr_vendorPlaceholder} value={form.vendor} onChange={e => set('vendor', e.target.value)} />
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
             <div>
-              <label style={{ color: '#6B7280', fontSize: '0.75rem', fontWeight: '600', display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Сумма (€)</label>
+              <label style={{ color: '#6B7280', fontSize: '0.75rem', fontWeight: '600', display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t.tr_amountLabel}</label>
               <input style={inputStyle} type="number" min="0" step="0.01" placeholder="0.00" value={form.amount} onChange={e => set('amount', e.target.value)} />
             </div>
             <div>
-              <label style={{ color: '#6B7280', fontSize: '0.75rem', fontWeight: '600', display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Дата</label>
+              <label style={{ color: '#6B7280', fontSize: '0.75rem', fontWeight: '600', display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t.tr_dateLabel}</label>
               <input style={inputStyle} type="date" value={form.event_date} onChange={e => set('event_date', e.target.value)} />
             </div>
           </div>
 
           <div>
-            <label style={{ color: '#6B7280', fontSize: '0.75rem', fontWeight: '600', display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Категория</label>
+            <label style={{ color: '#6B7280', fontSize: '0.75rem', fontWeight: '600', display: 'block', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{t.tr_categoryLabel}</label>
             <select style={{ ...inputStyle, cursor: 'pointer' }} value={form.category} onChange={e => set('category', e.target.value)}>
-              {ALL_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+              {CAT_KEYS.map(k => <option key={k} value={k}>{t[`cat_${k}`] || k}</option>)}
             </select>
           </div>
 
           <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', padding: '10px 12px', background: '#0B0F17', borderRadius: '10px', border: '1px solid #2D3748' }}>
             <input type="checkbox" checked={form.is_recurring} onChange={e => set('is_recurring', e.target.checked)} style={{ accentColor: '#00E5FF', width: '16px', height: '16px' }} />
             <div>
-              <div style={{ color: '#E2E8F0', fontSize: '0.85rem', fontWeight: '600' }}>Повторяется ежемесячно</div>
-              <div style={{ color: '#4A5568', fontSize: '0.72rem' }}>Будет учитываться в прогнозе и календаре</div>
+              <div style={{ color: '#E2E8F0', fontSize: '0.85rem', fontWeight: '600' }}>{t.tr_recurringLabel}</div>
+              <div style={{ color: '#4A5568', fontSize: '0.72rem' }}>{t.tr_recurringSub}</div>
             </div>
           </label>
 
           {error && <div style={{ color: '#FC8181', fontSize: '0.8rem', textAlign: 'center' }}>{error}</div>}
 
           <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
-            <button type="button" onClick={onClose} style={{ flex: 1, padding: '10px', background: 'transparent', border: '1px solid #2D3748', borderRadius: '10px', color: '#6B7280', fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer' }}>Отмена</button>
+            <button type="button" onClick={onClose} style={{ flex: 1, padding: '10px', background: 'transparent', border: '1px solid #2D3748', borderRadius: '10px', color: '#6B7280', fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer' }}>{t.cancel}</button>
             <button type="submit" disabled={saving} style={{ flex: 1, padding: '10px', background: '#00E5FF', border: 'none', borderRadius: '10px', color: '#0B0F17', fontSize: '0.85rem', fontWeight: '700', cursor: 'pointer', opacity: saving ? 0.7 : 1 }}>
-              {saving ? 'Сохранение...' : 'Добавить'}
+              {saving ? t.tr_savingBtn : t.tr_saveBtn}
             </button>
           </div>
         </form>
@@ -227,11 +208,14 @@ function AddTransactionModal({ onClose, onSaved }) {
 }
 
 export default function Transactions() {
+  const t = useT();
+  const PERIODS = { week: t.week, month: t.month, year: t.year, all: t.allTime };
+  const [searchParams] = useSearchParams();
   const [period,    setPeriod]    = useState('month');
   const [data,      setData]      = useState({ total: 0, items: [] });
   const [loading,   setLoading]   = useState(true);
   const [search,    setSearch]    = useState('');
-  const [category,  setCategory]  = useState('all');
+  const [category,  setCategory]  = useState(searchParams.get('category') || 'all');
   const [minAmount, setMinAmount] = useState('');
   const [maxAmount, setMaxAmount] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -264,7 +248,7 @@ export default function Transactions() {
 
   const filteredItems = data.items.filter(item => {
     if (search && !item.vendor?.toLowerCase().includes(search.toLowerCase())) return false;
-    if (category !== 'all' && item.category !== category) return false;
+    if (category !== 'all' && (category === 'income' ? !isIncomeCat(item.category) : item.category !== category)) return false;
     if (minAmount !== '' && item.amount < Number(minAmount)) return false;
     if (maxAmount !== '' && item.amount > Number(maxAmount)) return false;
     return true;
@@ -302,8 +286,8 @@ export default function Transactions() {
               outline: 'none', cursor: 'pointer',
             }}
           >
-            <option value="all">Все категории</option>
-            {ALL_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+            <option value="all">{t.tr_allCategories}</option>
+            {CAT_KEYS.map(k => <option key={k} value={k}>{t[`cat_${k}`] || k}</option>)}
           </select>
           <svg style={{ position: 'absolute', right: '11px', pointerEvents: 'none' }} width="12" height="12" viewBox="0 0 12 12" fill="none">
             <path d="M2.5 4.5L6 8L9.5 4.5" stroke="#6B7280" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -319,7 +303,7 @@ export default function Transactions() {
               alignItems: 'center', gap: '6px', whiteSpace: 'nowrap',
             }}
           >
-            + Добавить
+            {t.tr_addBtn}
           </button>
           <button
             onClick={() => download({ period, type: 'all' })}
@@ -356,7 +340,7 @@ export default function Transactions() {
           }}>🔍</span>
           <input
             type="text"
-            placeholder="Поиск по поставщику..."
+            placeholder={t.tr_searchPlaceholder}
             value={search}
             onChange={e => setSearch(e.target.value)}
             style={{
@@ -371,7 +355,7 @@ export default function Transactions() {
 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
           <input
             type="number"
-            placeholder="от €"
+            placeholder={t.tr_from}
             value={minAmount}
             onChange={e => setMinAmount(e.target.value)}
             style={{
@@ -383,7 +367,7 @@ export default function Transactions() {
           <span style={{ color: '#4A5568', fontSize: '0.8rem' }}>—</span>
           <input
             type="number"
-            placeholder="до €"
+            placeholder={t.tr_to}
             value={maxAmount}
             onChange={e => setMaxAmount(e.target.value)}
             style={{
@@ -403,16 +387,16 @@ export default function Transactions() {
               padding: '7px 12px', cursor: 'pointer', whiteSpace: 'nowrap',
             }}
           >
-            ✕ Сбросить
+            {t.tr_resetFilters}
           </button>
         )}
       </div>
 
       {/* Сводка */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '1.25rem' }}>
-        <SummaryCard label="Доходы"  value={totalIncome}  color="#68D391" />
-        <SummaryCard label="Расходы" value={-totalExpense} color="#FC8181" />
-        <SummaryCard label="Итого"   value={totalNet}     color={totalNet >= 0 ? '#68D391' : '#FC8181'} />
+        <SummaryCard label={t.tr_totalIncome}   value={totalIncome}   color="#68D391" />
+        <SummaryCard label={t.tr_totalExpenses} value={-totalExpense}  color="#FC8181" />
+        <SummaryCard label={t.tr_totalNet}      value={totalNet}       color={totalNet >= 0 ? '#68D391' : '#FC8181'} />
       </div>
 
       {/* Подсказка */}
@@ -423,8 +407,7 @@ export default function Transactions() {
       }}>
         <span style={{ color: '#00E5FF', fontSize: '0.9rem', flexShrink: 0, marginTop: '1px' }}>💡</span>
         <span style={{ color: '#6B7280', fontSize: '0.78rem', lineHeight: '1.5' }}>
-          Отметьте платежи которые повторяются каждый месяц (аренда, зарплата, подписки) —
-          дашборд будет показывать прогноз расходов на следующий месяц.
+          {t.tr_recurringHint}
         </span>
       </div>
 
@@ -440,14 +423,14 @@ export default function Transactions() {
           textTransform: 'uppercase', letterSpacing: '0.06em',
           overflowX: 'auto',
         }}>
-          <span>Дата</span>
-          <span>Поставщик</span>
-          <span>Категория</span>
+          <span>{t.tr_colDate}</span>
+          <span>{t.tr_colVendor}</span>
+          <span>{t.tr_colCategory}</span>
           <span style={{ textAlign: 'center' }}>
-            Ежемесячно
-            <span title="Платёж повторяется каждый месяц" style={{ marginLeft: '4px', cursor: 'help', opacity: 0.5 }}>ℹ</span>
+            {t.tr_colRecurring}
+            <span title={t.tr_recurringLabel} style={{ marginLeft: '4px', cursor: 'help', opacity: 0.5 }}>ℹ</span>
           </span>
-          <span style={{ textAlign: 'right' }}>Сумма</span>
+          <span style={{ textAlign: 'right' }}>{t.tr_colAmount}</span>
         </div>
 
         {/* Состояния */}
@@ -468,7 +451,7 @@ export default function Transactions() {
           <div style={{ padding: '3rem', textAlign: 'center' }}>
             <div style={{ color: '#4A5568', fontSize: '2rem', marginBottom: '12px' }}>📭</div>
             <div style={{ color: '#4A5568', fontSize: '0.85rem' }}>
-              {hasActiveFilters ? 'Нет транзакций по заданным фильтрам' : 'Нет транзакций за выбранный период'}
+              {hasActiveFilters ? t.tr_noResults : t.tr_noPeriod}
             </div>
           </div>
         )}
@@ -499,7 +482,7 @@ export default function Transactions() {
             <div style={{ display: 'flex', justifyContent: 'center' }}>
               <button
                 onClick={() => toggleRecurring(item.id, item.is_recurring)}
-                title={item.is_recurring ? 'Отключить' : 'Отметить как ежемесячный'}
+                title={item.is_recurring ? t.tr_disableRecurring : t.tr_enableRecurring}
                 style={{
                   display: 'flex', alignItems: 'center', gap: '5px',
                   background: item.is_recurring ? 'rgba(0,229,255,0.1)' : 'transparent',
@@ -511,7 +494,7 @@ export default function Transactions() {
                 }}
               >
                 <span style={{ fontSize: '0.6rem' }}>{item.is_recurring ? '●' : '○'}</span>
-                {item.is_recurring ? 'Да' : 'Нет'}
+                {item.is_recurring ? t.tr_isRecurring : t.tr_notRecurring}
               </button>
             </div>
 
