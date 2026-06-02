@@ -534,8 +534,104 @@ def _ocr_extract_budget(file_path: str) -> dict | None:
         return None
 
 
+_LABEL_FIX = {
+    "berufsunfähi":           "Berufsunfähigkeit",
+    "kfz-versich":            "KFZ-Versicherung",
+    "krankenversicherung priv": "Krankenversicherung privat voll",
+    "unterhaltsverpflich":    "Unterhaltsverpflichtung",
+    "kfz-nebenkosten":        "Kfz-Nebenkosten",
+}
+
+_COL_IDS = ["insurance", "housing", "living", "savings"]
+_COL_COLORS_LIST = ["#C8922A", "#C0392B", "#D4820A", "#2D8A4E"]
+
+_HEADER_KEYS = {
+    "schutzengel": 0, "wohnen": 1,
+    "leben": 2, "konsum": 2, "sparen": 3,
+}
+
+_SKIP_LINES = {
+    "name", "mtl", "neuer ausgabentyp", "vom einkommen",
+    "budget verwendet", "haushaltsnettoeinkommen",
+}
+
+
+def _fix_label(label: str) -> str:
+    ll = label.lower().rstrip(".")
+    for prefix, full in _LABEL_FIX.items():
+        if ll.startswith(prefix):
+            return full
+    return label.rstrip(".")
+
+
+def _extract_budget_by_columns(text: str) -> dict | None:
+    """Parse text-based Haushaltsbudget by splitting on column headers."""
+    AMOUNT_RE = re.compile(r'([\d]{1,3}(?:[\. ]?\d{3})*,\d{2})\s*€')
+    ITEM_RE = re.compile(
+        r'[v✓]\s+\(\d+\)\s+(.+?)\s+([\d]{1,3}(?:[\. ]?\d{3})*,\d{2})\s*€'
+    )
+
+    buckets: list[list[dict]] = [[], [], [], []]
+    current_col = -1
+    item_counters = [0, 0, 0, 0]
+
+    for raw_line in text.split('\n'):
+        line = raw_line.strip()
+        ll = line.lower()
+
+        if not line:
+            continue
+
+        # Skip summary/footer lines
+        if any(s in ll for s in _SKIP_LINES):
+            continue
+        if re.match(r'^\d+%', line):
+            continue
+
+        # Detect column header
+        for key, idx in _HEADER_KEYS.items():
+            if key in ll and len(line) < 25 and not AMOUNT_RE.search(line):
+                current_col = idx
+                break
+        else:
+            # Extract item line: "v (1) Label  20,00 €"
+            if current_col >= 0:
+                m = ITEM_RE.search(line)
+                if m:
+                    label = _fix_label(m.group(1).strip())
+                    amount = _parse_amount(m.group(2))
+                    if amount > 0 and len(label) >= 2:
+                        item_counters[current_col] += 1
+                        buckets[current_col].append({
+                            "id": f"{_COL_IDS[current_col]}_{item_counters[current_col]}",
+                            "label": label,
+                            "amount": amount,
+                        })
+
+    # Build categories — only those with items
+    categories = []
+    col_labels = ["Schutzengel", "Wohnen", "Leben / Konsum", "Sparen"]
+
+    # Try to get exact label from text
+    for i, items in enumerate(buckets):
+        if not items:
+            continue
+        categories.append({
+            "id": _COL_IDS[i],
+            "label": col_labels[i],
+            "color": _COL_COLORS_LIST[i],
+            "items": items,
+        })
+
+    if not categories:
+        return None
+
+    logger.info(f"Column parser: {len(categories)} cats, {sum(len(c['items']) for c in categories)} items")
+    return {"income": 0, "categories": categories}
+
+
 def _vision_extract_budget(file_path: str) -> dict | None:
-    """Render first PDF page → GPT-4o Vision → structured budget dict."""
+    """Render first PDF page → Claude Vision → structured budget dict."""
     try:
         import fitz
         pdf = fitz.open(file_path)
@@ -545,64 +641,47 @@ def _vision_extract_budget(file_path: str) -> dict | None:
         logger.warning(f"PDF render failed: {e}")
         return None
 
-    prompt = """Du siehst ein Haushaltsbudget-Dokument mit mehreren Spalten.
+    prompt = """Du siehst ein Haushaltsbudget mit mehreren Spalten.
 
-AUFGABE: Extrahiere jede Spalte als separate Kategorie — exakt so wie im Dokument.
+AUFGABE: Extrahiere jede Spalte als separate Kategorie exakt wie im Dokument.
 
-REGELN (strikt einhalten):
-1. Jede farbige Spaltenüberschrift (z.B. "Schutzengel", "Wohnen", "Leben / Konsum", "Sparen") = eine Kategorie
-2. Nimm den EXAKTEN Kategorienamen aus dem Dokument (nicht übersetzen, nicht umbenennen)
-3. Füge NUR Zeilen hinzu, die einen Eurobetrag haben (z.B. "400,00 €") — Zeilen OHNE Betrag überspringen
-4. Überspringe auch: Kopfzeilen (Name/mtl.), Summenzeilen (%, "Vom Einkommen"), "Neuer Ausgabentyp"
-5. Beträge als Dezimalzahl: 400.00 (nicht "400,00 €")
-6. income = 0 wenn kein Nettoeinkommen angegeben
+REGELN:
+1. Jede farbige Spaltenüberschrift = eine Kategorie (exakter Name aus Dokument)
+2. NUR Zeilen MIT Eurobetrag einschließen — Zeilen ohne Betrag überspringen
+3. Kopfzeilen (Name/mtl.), Summen (%, Vom Einkommen), "Neuer Ausgabentyp" überspringen
+4. Beträge als float: 400.00
+5. Abgeschnittene Namen vollständig schreiben (z.B. "Berufsunfähi..." → "Berufsunfähigkeit")
 
-Kategorie-IDs und Farben (nach Spaltenposition von links):
-- Spalte 1 → id="insurance", color="#C8922A"
-- Spalte 2 → id="housing",   color="#C0392B"
-- Spalte 3 → id="living",    color="#D4820A"
-- Spalte 4 → id="savings",   color="#2D8A4E"
-Falls mehr oder weniger Spalten: gleiche Logik, fortlaufende IDs.
+Kategorie-IDs nach Spaltenposition von links:
+Spalte 1 → id="insurance", color="#C8922A"
+Spalte 2 → id="housing",   color="#C0392B"
+Spalte 3 → id="living",    color="#D4820A"
+Spalte 4 → id="savings",   color="#2D8A4E"
 
-Gib NUR valides JSON zurück (kein Markdown, keine Erklärung):
-{
-  "income": 0,
-  "categories": [
-    {
-      "id": "insurance",
-      "label": "Schutzengel",
-      "color": "#C8922A",
-      "items": [
-        {"id": "i1", "label": "Berufsunfähigkeit", "amount": 20.00},
-        {"id": "i2", "label": "Unfall", "amount": 20.00}
-      ]
-    }
-  ]
-}"""
+Gib NUR valides JSON zurück:
+{"income":0,"categories":[{"id":"insurance","label":"Schutzengel","color":"#C8922A","items":[{"id":"i1","label":"Berufsunfähigkeit","amount":20.00}]}]}"""
 
     try:
-        from openai import OpenAI
+        import anthropic
         b64 = base64.standard_b64encode(img_bytes).decode("utf-8")
-        client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        resp = client.chat.completions.create(
-            model="gpt-4o",
+        client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+        resp = client.messages.create(
+            model="claude-opus-4-5",
             max_tokens=2048,
             messages=[{
                 "role": "user",
                 "content": [
-                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{b64}"}},
+                    {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": b64}},
                     {"type": "text", "text": prompt},
                 ],
             }]
         )
-        raw = resp.choices[0].message.content.strip()
+        raw = resp.content[0].text.strip()
         if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
-            raw = raw.rsplit("```", 1)[0]
+            raw = re.sub(r'^```(?:json)?\n?', '', raw)
+            raw = re.sub(r'\n?```$', '', raw)
         data = json.loads(raw)
-        logger.info(f"GPT-4o Vision budget: income={data.get('income')}, cats={len(data.get('categories', []))}")
+        logger.info(f"Claude Vision budget: income={data.get('income')}, cats={len(data.get('categories', []))}")
         return data
     except Exception as e:
         logger.warning(f"GPT-4o Vision budget failed: {e}")
@@ -644,9 +723,14 @@ def import_budget_from_document(
 
     budget_data = None
 
-    if is_visual_budget:
-        # Multi-column budget table — Vision understands the layout, regex does not
-        logger.info("Visual budget detected → using GPT-4o Vision directly")
+    if is_visual_budget and text.strip():
+        # Text-based multi-column budget — column parser preserves structure perfectly
+        logger.info("Visual budget (text) → column parser")
+        budget_data = _extract_budget_by_columns(text)
+
+    if not budget_data and is_visual_budget:
+        # Image-based or column parser returned nothing → Claude Vision
+        logger.info("Visual budget (image) → Claude Vision")
         budget_data = _vision_extract_budget(doc.file_path)
 
     if not budget_data and text.strip():
