@@ -183,10 +183,10 @@ _COL_HEADERS = {
 }
 
 _COL_COLORS = {
-    "housing":   "#4FD1C5",
-    "living":    "#68D391",
-    "insurance": "#F6AD55",
-    "savings":   "#B794F4",
+    "insurance": "#C8922A",
+    "housing":   "#C0392B",
+    "living":    "#D4820A",
+    "savings":   "#2D8A4E",
 }
 
 _COL_LABELS_DE = {
@@ -545,32 +545,40 @@ def _vision_extract_budget(file_path: str) -> dict | None:
         logger.warning(f"PDF render failed: {e}")
         return None
 
-    prompt = """Analysiere dieses Haushaltsdokument und extrahiere das Monatsbudget.
+    prompt = """Du siehst ein Haushaltsbudget-Dokument mit mehreren Spalten.
 
-Gib NUR valides JSON zurück (kein Markdown):
+AUFGABE: Extrahiere jede Spalte als separate Kategorie — exakt so wie im Dokument.
+
+REGELN (strikt einhalten):
+1. Jede farbige Spaltenüberschrift (z.B. "Schutzengel", "Wohnen", "Leben / Konsum", "Sparen") = eine Kategorie
+2. Nimm den EXAKTEN Kategorienamen aus dem Dokument (nicht übersetzen, nicht umbenennen)
+3. Füge NUR Zeilen hinzu, die einen Eurobetrag haben (z.B. "400,00 €") — Zeilen OHNE Betrag überspringen
+4. Überspringe auch: Kopfzeilen (Name/mtl.), Summenzeilen (%, "Vom Einkommen"), "Neuer Ausgabentyp"
+5. Beträge als Dezimalzahl: 400.00 (nicht "400,00 €")
+6. income = 0 wenn kein Nettoeinkommen angegeben
+
+Kategorie-IDs und Farben (nach Spaltenposition von links):
+- Spalte 1 → id="insurance", color="#C8922A"
+- Spalte 2 → id="housing",   color="#C0392B"
+- Spalte 3 → id="living",    color="#D4820A"
+- Spalte 4 → id="savings",   color="#2D8A4E"
+Falls mehr oder weniger Spalten: gleiche Logik, fortlaufende IDs.
+
+Gib NUR valides JSON zurück (kein Markdown, keine Erklärung):
 {
-  "income": 4500.00,
+  "income": 0,
   "categories": [
     {
       "id": "insurance",
       "label": "Schutzengel",
-      "color": "#F6AD55",
-      "items": [{"id": "i1", "label": "KFZ-Versicherung", "amount": 84.00}]
+      "color": "#C8922A",
+      "items": [
+        {"id": "i1", "label": "Berufsunfähigkeit", "amount": 20.00},
+        {"id": "i2", "label": "Unfall", "amount": 20.00}
+      ]
     }
   ]
-}
-
-Verwende diese Kategorie-IDs und Farben:
-- "insurance" (#F6AD55) — Versicherungen / Schutzengel
-- "housing"   (#4FD1C5) — Wohnen
-- "living"    (#68D391) — Leben / Konsum / Alltag
-- "savings"   (#B794F4) — Sparen / Vorsorge
-
-Regeln:
-- income = monatliches Nettoeinkommen
-- Nur Positionen mit Betrag > 0 einschließen
-- Beträge als Dezimalzahl (1530.00, nicht "1.530,00")
-- label der Kategorie: so wie im Dokument angegeben"""
+}"""
 
     try:
         from openai import OpenAI
@@ -616,7 +624,7 @@ def import_budget_from_document(
     if doc.owner_id != user["id"]:
         raise HTTPException(403, "Not allowed")
 
-    # Step 1: text-based extraction via pdfplumber
+    # Step 1: quick text scan to detect document type
     text = ""
     try:
         import pdfplumber
@@ -630,17 +638,27 @@ def import_budget_from_document(
 
     logger.info(f"Budget import doc={doc_id}: file={doc.file_path}, text_len={len(text)}")
 
-    if text.strip():
-        logger.info(f"Text extracted ({len(text)} chars), running regex parser")
+    HAUSHALTS_SIGNALS = ["schutzengel", "wohnen", "leben", "sparen", "haushaltsbudget",
+                         "haushaltsnettoeinkommen", "neuer ausgabentyp"]
+    is_visual_budget = any(sig in text.lower() for sig in HAUSHALTS_SIGNALS)
+
+    budget_data = None
+
+    if is_visual_budget:
+        # Multi-column budget table — Vision understands the layout, regex does not
+        logger.info("Visual budget detected → using GPT-4o Vision directly")
+        budget_data = _vision_extract_budget(doc.file_path)
+
+    if not budget_data and text.strip():
+        logger.info("Falling back to regex parser")
         budget_data = _extract_budget_from_text(text)
-    else:
-        logger.info(f"No text in doc {doc_id}, trying OCR (pytesseract)")
+
+    if not budget_data:
+        logger.info("Trying OCR")
         budget_data = _ocr_extract_budget(doc.file_path)
-        if not budget_data:
-            logger.info("OCR failed or empty, trying GPT-4o Vision")
-            budget_data = _vision_extract_budget(doc.file_path)
-        if not budget_data:
-            raise HTTPException(422, f"Could not extract budget from doc {doc_id}. File: {doc.file_path}")
+
+    if not budget_data:
+        raise HTTPException(422, f"Could not extract budget from doc {doc_id}. File: {doc.file_path}")
 
     logger.info(
         f"Budget import doc={doc_id}: income={budget_data.get('income')}, "
