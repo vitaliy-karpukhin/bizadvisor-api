@@ -3,6 +3,7 @@ import { useLang } from '../../context/LangContext.jsx';
 import { PROFILE_T } from '../../locales/profile/translations';
 import { s } from './styles';
 import SuccessOverlay from '../../components/SuccessOverlay.jsx';
+import api from '../../api/client';
 
 const I = {
   User:     (p) => <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...p}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
@@ -67,8 +68,8 @@ export default function Profile() {
     const tk = token();
     if (!tk) { setLoading(false); return; }
     Promise.all([
-      fetch('/api/auth/me',    { headers: { Authorization: `Bearer ${tk}` } }).then(r => r.json()),
-      fetch('/api/auth/stats', { headers: { Authorization: `Bearer ${tk}` } }).then(r => r.ok ? r.json() : null),
+      api.get('/auth/me').then(r => r.data),
+      api.get('/auth/stats').then(r => r.data).catch(() => null),
     ]).then(([data, st]) => {
       setUser({ ...data, company: data.company || { name: '', position: '', tax_id: '' } });
       syncStorage(data);
@@ -81,24 +82,17 @@ export default function Profile() {
     if (!file) return;
     const form = new FormData();
     form.append('avatar', file);
-    const r = await fetch('/api/auth/upload-avatar', { method: 'POST', headers: { Authorization: `Bearer ${token()}` }, body: form });
-    if (r.ok) {
-      const d = await r.json();
-      const u = { ...user, avatar_url: d.avatar_url };
-      setUser(u); syncStorage(u);
-      setShowSuccess(true); setTimeout(() => setShowSuccess(false), 2000);
-    }
+    const { data: d } = await api.post('/auth/upload-avatar', form);
+    const u = { ...user, avatar_url: d.avatar_url };
+    setUser(u); syncStorage(u);
+    setShowSuccess(true); setTimeout(() => setShowSuccess(false), 2000);
   };
 
   const handleSaveProfile = async () => {
     setSavingProfile(true);
     try {
-      const r = await fetch('/api/auth/update', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
-        body: JSON.stringify({ first_name: user.first_name, last_name: user.last_name, phone: user.phone, avatar_url: user.avatar_url, company: user.company }),
-      });
-      if (r.ok) { syncStorage(await r.json()); setShowSuccess(true); setTimeout(() => setShowSuccess(false), 2000); }
+      const { data } = await api.put('/auth/update', { first_name: user.first_name, last_name: user.last_name, phone: user.phone, avatar_url: user.avatar_url, company: user.company });
+      syncStorage(data); setShowSuccess(true); setTimeout(() => setShowSuccess(false), 2000);
     } finally { setSavingProfile(false); }
   };
 
@@ -108,13 +102,10 @@ export default function Profile() {
     if (pwNew.length < 6)    { setPwError(DE(lang) ? 'Mindestens 6 Zeichen' : 'Минимум 6 символов'); return; }
     setPwSaving(true);
     try {
-      const r = await fetch('/api/auth/change-password', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
-        body: JSON.stringify({ current_password: pwCurrent, new_password: pwNew }),
-      });
-      if (r.ok) { setPwCurrent(''); setPwNew(''); setPwConfirm(''); setPwOk(true); setTimeout(() => setPwOk(false), 3000); }
-      else { const e = await r.json(); setPwError(e.detail || 'Ошибка'); }
+      try {
+        await api.post('/auth/change-password', { current_password: pwCurrent, new_password: pwNew });
+        setPwCurrent(''); setPwNew(''); setPwConfirm(''); setPwOk(true); setTimeout(() => setPwOk(false), 3000);
+      } catch (e) { setPwError(e.response?.data?.detail || 'Ошибка'); }
     } finally { setPwSaving(false); }
   };
 

@@ -3,8 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { LangProvider } from './context/LangContext';
 import MainLayout from './layouts/MainLayout';
 import ProtectedRoute from './components/ProtectedRoute';
-import axios from 'axios';
-import { startKeepAlive } from './api/client';
+import api, { startKeepAlive } from './api/client';
 
 // Импорт страниц
 import Login from './pages/Login';
@@ -27,9 +26,7 @@ const AuthWatcher = ({ children }) => {
       if (!token) return;
 
       try {
-        await axios.get('/api/auth/me', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+        await api.get('/auth/me');
         startKeepAlive();
       } catch (err) {
         if (err.response?.status === 401 || err.response?.status === 404) {
