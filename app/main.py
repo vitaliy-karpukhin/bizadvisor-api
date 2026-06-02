@@ -142,15 +142,15 @@ async def startup_event():
     logger.info("Application startup complete.")
 
 # 5. Подключение роутеров
-app.include_router(auth.router, prefix="/api/auth", tags=["auth"])
-app.include_router(protected.router, prefix="/api/protected", tags=["protected"])
-app.include_router(company_router, prefix="/api/company", tags=["company"])
-app.include_router(projects.router, prefix="/api/projects", tags=["projects"])
-app.include_router(documents_router, prefix="/api/documents", tags=["documents"])
-app.include_router(dashboard.router, prefix="/api/dashboard", tags=["dashboard"])
-app.include_router(chat.router, prefix="/api/chat", tags=["AI Chat"])
-app.include_router(notifications_router, prefix="/api/notifications", tags=["notifications"])
-app.include_router(budget_router, prefix="/api/budget", tags=["budget"])
+app.include_router(auth.router, prefix="/auth", tags=["auth"])
+app.include_router(protected.router, prefix="/protected", tags=["protected"])
+app.include_router(company_router, prefix="/company", tags=["company"])
+app.include_router(projects.router, prefix="/projects", tags=["projects"])
+app.include_router(documents_router, prefix="/documents", tags=["documents"])
+app.include_router(dashboard.router, prefix="/dashboard", tags=["dashboard"])
+app.include_router(chat.router, prefix="/chat", tags=["AI Chat"])
+app.include_router(notifications_router, prefix="/notifications", tags=["notifications"])
+app.include_router(budget_router, prefix="/budget", tags=["budget"])
 
 # 6. Swagger Security Config (чтобы кнопка Authorize работала)
 def custom_openapi():
@@ -177,7 +177,7 @@ app.openapi = custom_openapi
 def root():
     return {"status": "running"}
 
-@app.get("/api/health", tags=["Root"])
+@app.get("/health", tags=["Root"])
 def health():
     return {"status": "ok"}
 
