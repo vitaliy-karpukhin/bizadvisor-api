@@ -113,7 +113,7 @@ export default function Analytics() {
                   </div>
                 )}
 
-                <div style={{ height: '280px' }}>
+                <div style={{ height: '180px' }}>
                   {loading ? (
                     <div style={{ color: '#4A5568', textAlign: 'center', paddingTop: '5rem', fontSize: '0.85rem' }}>{t.an_chartLoading}</div>
                   ) : !hasChart ? (

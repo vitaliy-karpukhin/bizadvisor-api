@@ -54,14 +54,14 @@ export const s = {
   empty: { color: '#4A5568', textAlign: 'center', padding: '3rem', fontSize: '0.85rem' },
 
   uploadZone: (drag) => ({
-    border: `2px dashed ${drag ? '#00E5FF' : '#1E2530'}`,
-    borderRadius: '16px', padding: '2rem', textAlign: 'center',
+    border: `2px dashed ${drag ? '#00E5FF' : 'rgba(255,255,255,0.3)'}`,
+    borderRadius: '16px', padding: '0.65rem 2rem', textAlign: 'center',
     cursor: 'pointer', background: drag ? 'rgba(0,229,255,0.05)' : '#151B28',
     transition: 'all 0.2s', marginBottom: '1.5rem',
   }),
 
   card: {
-    background: '#151B28', border: '1px solid #1E2530',
+    background: '#151B28', border: '1px solid rgb(0,229,255)',
     borderRadius: '16px', padding: '0.9rem 1.25rem',
     display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '0.75rem',
     minWidth: 0,

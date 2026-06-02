@@ -302,6 +302,23 @@ def create_transaction(
     return {"ok": True, "id": event.id}
 
 
+@router.delete("/transactions/{event_id}")
+def delete_transaction(
+    event_id: int,
+    user: dict = Depends(get_current_user_from_header),
+    db:   Session = Depends(get_db),
+):
+    from app.models.financial_event import FinancialEvent
+    event = db.query(FinancialEvent).filter(FinancialEvent.id == event_id).first()
+    if not event:
+        raise HTTPException(404, "Event not found")
+    if event.user_id != user["id"] and user["role"] != "admin":
+        raise HTTPException(403, "Not allowed")
+    db.delete(event)
+    db.commit()
+    return {"ok": True}
+
+
 @router.patch("/transactions/{event_id}/recurring")
 def toggle_recurring(
     event_id: int,

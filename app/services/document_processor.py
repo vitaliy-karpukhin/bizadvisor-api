@@ -50,16 +50,35 @@ def process_document(document: Document, db: Session):
 
         logger.info(f"Extracted {len(financial_events)} financial event(s)")
 
+        # Шаг 3б: Проверяем — это документ-бюджет?
+        BUDGET_SIGNALS = [
+            "haushaltsbudget", "haushaltsnettoeinkommen", "überschuss",
+            "ist-/soll-vergleich", "finanzplanung", "schutzbudget",
+        ]
+        text_lower = (extracted_text or "").lower()
+        is_budget_doc = any(sig in text_lower for sig in BUDGET_SIGNALS)
+
+        # Для image-based PDFs — OCR-проверка через pytesseract
+        if not is_budget_doc and not extracted_text:
+            try:
+                image_bytes = _render_pdf_page_as_png(document.file_path)
+                if image_bytes:
+                    ocr_text = _ocr_image(image_bytes).lower()
+                    is_budget_doc = any(sig in ocr_text for sig in BUDGET_SIGNALS)
+            except Exception:
+                pass
+
         # Шаг 4: Сохраняем результат в extraction_result для отображения
         meta  = _extract_meta(extracted_text) if extracted_text else {}
         first = financial_events[0] if financial_events else {}
         document.extraction_result = {
             "language":     language,
-            "events_count": len(financial_events),
+            "events_count": 0 if is_budget_doc else len(financial_events),
             "amount":       first.get("amount", 0),
             "category":     first.get("category", "other"),
             "vendor":       first.get("vendor") or vision_meta.get("vendor") or meta.get("firma"),
             "currency":     first.get("currency", "EUR"),
+            "doc_type":     "haushaltsbudget" if is_budget_doc else "financial",
             **meta,
             **vision_meta,
         }
@@ -72,7 +91,44 @@ def process_document(document: Document, db: Session):
 
         logger.info(f"Document {document.id} saved with extraction_result")
 
-        # Шаг 5: Создание финансовых событий
+        # Шаг 5: Бюджет-документ → импортируем в планировщик, транзакции НЕ создаём
+        if is_budget_doc:
+            logger.info(f"Document {document.id} detected as Haushaltsbudget — importing to budget planner")
+            try:
+                from app.routes.budget import (
+                    _extract_budget_from_text,
+                    _ocr_extract_budget,
+                    _vision_extract_budget,
+                )
+                from app.models.budget import Budget
+
+                budget_data = None
+                if extracted_text.strip():
+                    budget_data = _extract_budget_from_text(extracted_text)
+                if not budget_data:
+                    budget_data = _ocr_extract_budget(document.file_path)
+                if not budget_data:
+                    budget_data = _vision_extract_budget(document.file_path)
+
+                if budget_data:
+                    from datetime import datetime
+                    period = datetime.now().strftime("%Y-%m")
+                    row = db.query(Budget).filter(
+                        Budget.user_id == document.owner_id,
+                        Budget.period == period,
+                    ).first()
+                    if row:
+                        row.data = budget_data
+                    else:
+                        row = Budget(user_id=document.owner_id, period=period, data=budget_data)
+                        db.add(row)
+                    db.commit()
+                    logger.info(f"Budget imported: income={budget_data.get('income')}, cats={len(budget_data.get('categories', []))}")
+            except Exception as e:
+                logger.error(f"Budget import failed for doc {document.id}: {e}")
+            return
+
+        # Шаг 5 (обычный документ): Создание финансовых событий
         build_financial_event(document=document, db=db, events=financial_events)
 
         logger.info(f"Financial events created for document {document.id}")
@@ -384,6 +440,44 @@ def _extract_financial_data(text: str, language: str = "de") -> list:
 
     CUR = r"(?:\s*(?:€|EUR))?"
 
+    # ── Haushaltsbudget (бюджет домохозяйства) ───────────────────────────
+    BUDGET_SIGNALS = [
+        "haushaltsbudget", "haushaltsnettoeinkommen", "überschuss",
+        "ist-/soll-vergleich", "haushalts", "finanzplanung",
+    ]
+    is_budget = any(s in tl for s in BUDGET_SIGNALS)
+
+    if is_budget:
+        # Доход: Haushaltsnettoeinkommen
+        income_amt = _find_amount(text, [
+            rf"haushaltsnettoeinkommen[:\s\n]*([\d][0-9\.\,]+)\s*(?:€|EUR)?",
+            rf"nettoeinkommen[:\s\n]*([\d][0-9\.\,]+)\s*(?:€|EUR)?",
+            rf"([\d][0-9\.\,]+)\s*€\s*/",
+            rf"([\d][0-9\.\,]+),00\s*€",
+        ])
+        # Расходы: суммарный итог по колонкам "NN% X € mtl." (только с процентом)
+        expense_amounts = re.findall(
+            r"\d+%\s+([\d][\d\s]*[\.,]\d{2})\s*€\s*mtl", text, re.IGNORECASE
+        )
+        total_expenses = 0.0
+        for a in expense_amounts:
+            v = _parse_amount(a.replace(" ", ""))
+            if v > 0:
+                total_expenses += v
+
+        name_m = re.search(
+            r"([A-ZÄÖÜ][a-zäöüß]+ [A-ZÄÖÜ][a-zäöüß]+)\s*(?:V\b|$)",
+            text, re.MULTILINE
+        )
+        person = name_m.group(1).strip() if name_m else vendor
+
+        if income_amt > 0:
+            events.append({"amount": income_amt, "category": "income", "vendor": person, "currency": currency})
+        if total_expenses > 0:
+            events.append({"amount": round(total_expenses, 2), "category": "expense", "vendor": person, "currency": currency})
+        if events:
+            return events
+
     # ── Einkommenssituation (немецкий отчёт о доходах) ────────────────────
     EINKOMMENS_SIGNALS = [
         "einkommenssituation", "bereinigtes nettoeinkommen",
@@ -394,7 +488,6 @@ def _extract_financial_data(text: str, language: str = "de") -> list:
     is_einkommenssituation = any(s in tl for s in EINKOMMENS_SIGNALS)
 
     if is_einkommenssituation:
-        # Ищем месячный доход (monatlich) — предпочтительнее годового
         monthly_amt = _find_amount(text, [
             rf"([\d][0-9\.\,]+)\s*€\s*monatlich",
             rf"monatlich\b[^\d\n]{{0,20}}([\d][0-9\.\,]+)\s*€?",
@@ -405,7 +498,6 @@ def _extract_financial_data(text: str, language: str = "de") -> list:
             rf"([\d][0-9\.\,]+)\s*€\s*jährlich",
             rf"jährlich\b[^\d\n]{{0,20}}([\d][0-9\.\,]+)\s*€?",
         ])
-        # Извлекаем имя человека (строка перед "Selbstständige Tätigkeit")
         name_m = re.search(
             r"([A-ZÄÖÜ][a-zäöüß]+\s+[A-ZÄÖÜ][a-zäöüß]+)\s*\n?\s*Selbst",
             text, re.IGNORECASE

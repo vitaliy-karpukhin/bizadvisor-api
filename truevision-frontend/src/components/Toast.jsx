@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 
-export default function Toast({ message, type = 'error', onClose }) {
+export default function Toast({ message, type = 'error', onClose, onUndo }) {
   const colors = {
     error:   { border: '#FC8181', text: '#FC8181' },
     success: { border: '#68D391', text: '#68D391' },
@@ -10,7 +10,7 @@ export default function Toast({ message, type = 'error', onClose }) {
   const { border, text } = colors[type] || colors.error;
 
   useEffect(() => {
-    const t = setTimeout(onClose, 4000);
+    const t = setTimeout(onClose, onUndo ? 6000 : 4000);
     return () => clearTimeout(t);
   }, []);
 
@@ -20,10 +20,23 @@ export default function Toast({ message, type = 'error', onClose }) {
       background: '#1E2530', border: `1px solid ${border}`,
       borderRadius: '12px', padding: '12px 16px',
       color: text, fontSize: '0.82rem', fontWeight: '600',
-      zIndex: 2000, maxWidth: '320px',
+      zIndex: 2000, maxWidth: '340px',
       boxShadow: '0 4px 20px rgba(0,0,0,0.4)',
+      display: 'flex', alignItems: 'center', gap: '12px',
     }}>
-      {message}
+      <span style={{ flex: 1 }}>{message}</span>
+      {onUndo && (
+        <button
+          onClick={() => { onUndo(); onClose(); }}
+          style={{
+            background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)',
+            borderRadius: '8px', color: '#E2E8F0', fontSize: '0.75rem',
+            fontWeight: '700', padding: '4px 10px', cursor: 'pointer', whiteSpace: 'nowrap',
+          }}
+        >
+          Отменить
+        </button>
+      )}
     </div>
   );
 }

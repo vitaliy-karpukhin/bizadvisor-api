@@ -1,7 +1,41 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import ReactDOM from 'react-dom';
 import api from '../../api/client';
 import { useT } from '../../locales/i18n.js';
 import { useLang } from '../../context/LangContext.jsx';
+
+function ConfirmModal({ message, onConfirm, onCancel }) {
+  return ReactDOM.createPortal(
+    <div
+      style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10000 }}
+      onMouseDown={onCancel}
+    >
+      <div
+        style={{ background: '#151B28', border: '1px solid #2D3748', borderRadius: '16px', padding: '1.5rem 1.75rem', width: '100%', maxWidth: '360px', boxShadow: '0 16px 48px rgba(0,0,0,0.6)' }}
+        onMouseDown={e => e.stopPropagation()}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '0.75rem' }}>
+          <div style={{ width: '36px', height: '36px', borderRadius: '10px', flexShrink: 0, background: 'rgba(252,129,129,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FC8181" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+            </svg>
+          </div>
+          <h3 style={{ margin: 0, color: '#E2E8F0', fontSize: '0.95rem', fontWeight: '700' }}>Удалить?</h3>
+        </div>
+        <p style={{ margin: '0 0 1.25rem', color: '#6B7280', fontSize: '0.82rem', lineHeight: '1.5' }}>{message}</p>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button onClick={onCancel} style={{ flex: 1, padding: '9px', background: 'transparent', border: '1px solid #2D3748', borderRadius: '10px', color: '#6B7280', fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer' }}>
+            Отмена
+          </button>
+          <button onClick={onConfirm} style={{ flex: 1, padding: '9px', background: '#FC8181', border: 'none', borderRadius: '10px', color: '#0B0F17', fontSize: '0.85rem', fontWeight: '700', cursor: 'pointer' }}>
+            Удалить
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
 
 const COLORS = ['#4FD1C5', '#68D391', '#F6AD55', '#B794F4', '#60A5FA', '#F472B6'];
 
@@ -51,6 +85,8 @@ function CategoryCard({ cat, index, onChange, onDelete, onAddItem, onDeleteItem,
       overflow: 'hidden',
       display: 'flex',
       flexDirection: 'column',
+      breakInside: 'avoid',
+      marginBottom: '1rem',
     }}>
       {/* Заголовок категории */}
       <div style={{
@@ -81,7 +117,10 @@ function CategoryCard({ cat, index, onChange, onDelete, onAddItem, onDeleteItem,
           style={{
             background: 'transparent', border: 'none', cursor: 'pointer',
             color: '#374151', fontSize: '1rem', lineHeight: 1, padding: '2px 4px',
+            transition: 'color 0.15s',
           }}
+          onMouseEnter={e => e.currentTarget.style.color = '#FC8181'}
+          onMouseLeave={e => e.currentTarget.style.color = '#374151'}
           title="Удалить категорию"
         >×</button>
       </div>
@@ -133,11 +172,14 @@ function CategoryCard({ cat, index, onChange, onDelete, onAddItem, onDeleteItem,
               <span style={{ color: '#4A5568', fontSize: '0.8rem' }}>€</span>
             </div>
             <button
-              onClick={() => onDeleteItem(item.id)}
+              onClick={() => onDeleteItem(item.id, item.label)}
               style={{
                 background: 'transparent', border: 'none', cursor: 'pointer',
                 color: '#374151', fontSize: '0.9rem', lineHeight: 1, padding: '2px',
+                transition: 'color 0.15s',
               }}
+              onMouseEnter={e => e.currentTarget.style.color = '#FC8181'}
+              onMouseLeave={e => e.currentTarget.style.color = '#374151'}
             >×</button>
           </div>
         ))}
@@ -165,38 +207,73 @@ function CategoryCard({ cat, index, onChange, onDelete, onAddItem, onDeleteItem,
   );
 }
 
-export default function BudgetPlanner({ monthlyIncome }) {
+function currentPeriod() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+export default function BudgetPlanner() {
   const t = useT();
   const { lang } = useLang();
-  const [budget, setBudget] = useState(null);
-  const rawBudget = useRef(null); // сырые данные из БД (без локализации)
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const period = currentPeriod();
+  const [budget,  setBudget]  = useState(null);
+  const [saving,  setSaving]  = useState(false);
+  const [saved,   setSaved]   = useState(false);
+  const rawBudget = useRef(null);
   const saveTimer = useRef(null);
+  const [pendingDelete, setPendingDelete] = useState(null);
 
-  // Загрузка один раз
-  useEffect(() => {
-    api.get('/budget')
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const fileInputRef = useRef(null);
+
+  const loadBudget = useCallback(() => {
+    setBudget(null);
+    api.get(`/budget?period=${period}`)
       .then(r => {
         const data = r.data;
-        const withCats = data.categories?.length
-          ? data
-          : { ...data, categories: t.bud_defaultCategories };
-        rawBudget.current = withCats;
-        setBudget(localizeBudget(withCats, t));
+        const clean = { income: data.income || 0, categories: data.categories || [] };
+        rawBudget.current = clean;
+        setBudget(localizeBudget(clean, t));
       })
       .catch(() => {
-        const fallback = { income: 0, categories: t.bud_defaultCategories };
+        const fallback = { income: 0, categories: [] };
         rawBudget.current = fallback;
         setBudget(fallback);
       });
-  }, []);
+  }, [t]);
 
-  // Повторная локализация при смене языка
-  useEffect(() => {
-    if (rawBudget.current) {
-      setBudget(prev => prev ? localizeBudget(prev, t) : prev);
+  const handleUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setUploadError('');
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      const res = await api.post('/documents/upload', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+      const er = res.data?.extraction_result;
+      if (er?.doc_type === 'haushaltsbudget') {
+        loadBudget();
+      } else if (res.data?.duplicate) {
+        await api.post(`/budget/import/${res.data.existing_id}`);
+        loadBudget();
+      } else {
+        setUploadError('Документ не распознан как Haushaltsbudget.');
+      }
+    } catch (err) {
+      const msg = err?.response?.data?.detail;
+      setUploadError(msg || 'Ошибка загрузки. Попробуйте ещё раз.');
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     }
+  };
+
+  useEffect(() => { loadBudget(); }, []);
+
+  useEffect(() => {
+    if (rawBudget.current) setBudget(prev => prev ? localizeBudget(prev, t) : prev);
   }, [lang]);
 
   const autosave = useCallback((next) => {
@@ -205,137 +282,63 @@ export default function BudgetPlanner({ monthlyIncome }) {
     saveTimer.current = setTimeout(async () => {
       setSaving(true);
       try {
-        await api.put('/budget', next);
+        await api.put(`/budget?period=${period}`, next);
         setSaved(true);
         setTimeout(() => setSaved(false), 2000);
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setSaving(false);
-      }
+      } catch (e) { console.error(e); }
+      finally { setSaving(false); }
     }, 1200);
-  }, []);
+  }, [period]);
 
-  const update = useCallback((next) => {
-    setBudget(next);
-    autosave(next);
-  }, [autosave]);
+  const update = useCallback((next) => { setBudget(next); autosave(next); }, [autosave]);
+  const updateCategory = (idx, cat) => update({ ...budget, categories: budget.categories.map((c, i) => i === idx ? cat : c) });
+  const deleteCategory = (idx) => update({ ...budget, categories: budget.categories.filter((_, i) => i !== idx) });
+  const addCategory = () => update({ ...budget, categories: [...budget.categories, { id: uid(), label: t.bud_newCategory, color: COLORS[budget.categories.length % COLORS.length], items: [] }] });
 
-  const updateCategory = (idx, cat) => {
-    const cats = budget.categories.map((c, i) => i === idx ? cat : c);
-    update({ ...budget, categories: cats });
-  };
+  if (!budget) return <div style={{ color: '#4A5568', textAlign: 'center', paddingTop: '3rem', fontSize: '0.9rem' }}>{t.bud_loading}</div>;
 
-  const deleteCategory = (idx) => {
-    update({ ...budget, categories: budget.categories.filter((_, i) => i !== idx) });
-  };
-
-  const addCategory = () => {
-    const newCat = {
-      id: uid(),
-      label: t.bud_newCategory,
-      color: COLORS[budget.categories.length % COLORS.length],
-      items: [],
-    };
-    update({ ...budget, categories: [...budget.categories, newCat] });
-  };
-
-  if (!budget) {
-    return <div style={{ color: '#4A5568', textAlign: 'center', paddingTop: '3rem', fontSize: '0.9rem' }}>{t.bud_loading}</div>;
-  }
-
-  const totalExpenses = budget.categories.reduce(
-    (s, cat) => s + cat.items.reduce((ss, i) => ss + (Number(i.amount) || 0), 0),
-    0
-  );
-  const income = monthlyIncome || budget.income || 0;
+  const hasData = budget.categories?.some(cat => cat.items?.some(i => (i.amount || 0) > 0));
+  const totalExpenses = budget.categories.reduce((s, cat) => s + cat.items.reduce((ss, i) => ss + (Number(i.amount) || 0), 0), 0);
+  const income = budget.income || 0;
   const surplus = income - totalExpenses;
   const surplusColor = surplus >= 0 ? '#68D391' : '#FC8181';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
 
-      {/* Строка "доход + статус сохранения" */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: '10px',
-          background: '#151B28', border: '1px solid #1E2530',
-          borderRadius: '14px', padding: '10px 16px',
-        }}>
-          <span style={{ color: '#6B7280', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>
-            {t.bud_monthlyIncome}
-          </span>
-          <input
-            type="number"
-            min="0"
-            value={budget.income || ''}
-            onChange={e => update({ ...budget, income: parseFloat(e.target.value) || 0 })}
-            style={{
-              width: '110px', background: '#0B0F17',
-              border: '1px solid #1E2530', borderRadius: '8px',
-              color: '#fff', fontSize: '0.9rem', fontWeight: '700',
-              padding: '5px 10px', outline: 'none', textAlign: 'right',
-            }}
-            placeholder="0"
-          />
-          <span style={{ color: '#6B7280', fontSize: '0.85rem' }}>€</span>
+      {/* ── Строка "доход + сводка" ── */}
+      {hasData && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#151B28', border: '1px solid #1E2530', borderRadius: '14px', padding: '10px 16px' }}>
+            <span style={{ color: '#6B7280', fontSize: '0.82rem', whiteSpace: 'nowrap' }}>{t.bud_monthlyIncome}</span>
+            {(saving || saved) && <span style={{ fontSize: '0.72rem', color: saved ? '#68D391' : '#4A5568' }}>{saving ? t.saving : t.saved}</span>}
+            <input type="number" min="0" value={budget.income || ''} onChange={e => update({ ...budget, income: parseFloat(e.target.value) || 0 })}
+              style={{ width: '110px', background: '#0B0F17', border: '1px solid #1E2530', borderRadius: '8px', color: '#fff', fontSize: '0.9rem', fontWeight: '700', padding: '5px 10px', outline: 'none', textAlign: 'right' }} placeholder="0" />
+            <span style={{ color: '#6B7280', fontSize: '0.85rem' }}>€</span>
+          </div>
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', flex: 1 }}>
+            {[{ label: t.bud_expenses, val: totalExpenses, color: '#FC8181' }, { label: t.bud_remainder, val: surplus, color: surplusColor }].map(({ label, val, color }) => (
+              <div key={label} style={{ background: '#151B28', border: '1px solid #1E2530', borderRadius: '14px', padding: '10px 20px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                <span style={{ color: '#6B7280', fontSize: '0.7rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{label}</span>
+                <span style={{ color, fontWeight: '800', fontSize: '1.1rem', fontVariantNumeric: 'tabular-nums' }}>{val < 0 ? '−' : ''}{fmt(Math.abs(val))} €</span>
+              </div>
+            ))}
+          </div>
         </div>
+      )}
 
-        {/* Сводка */}
-        <div style={{
-          display: 'flex', gap: '1rem', flexWrap: 'wrap', flex: 1,
-        }}>
-          {[
-            { label: t.bud_expenses, val: totalExpenses, color: '#FC8181' },
-            { label: t.bud_remainder, val: surplus, color: surplusColor },
-          ].map(({ label, val, color }) => (
-            <div key={label} style={{
-              background: '#151B28', border: '1px solid #1E2530',
-              borderRadius: '14px', padding: '10px 20px',
-              display: 'flex', flexDirection: 'column', gap: '2px',
-            }}>
-              <span style={{ color: '#6B7280', fontSize: '0.7rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                {label}
-              </span>
-              <span style={{ color, fontWeight: '800', fontSize: '1.1rem', fontVariantNumeric: 'tabular-nums' }}>
-                {surplus < 0 && label === 'Остаток' ? '−' : ''}{fmt(Math.abs(val))} €
-              </span>
-            </div>
-          ))}
-        </div>
-
-        {/* Статус сохранения */}
-        <div style={{ marginLeft: 'auto', fontSize: '0.75rem', color: saved ? '#68D391' : '#4A5568' }}>
-          {saving ? t.saving : saved ? t.saved : ''}
-        </div>
-      </div>
-
-      {/* Прогресс-бар расходов */}
-      {income > 0 && (
-        <div style={{
-          background: '#151B28', borderRadius: '12px',
-          border: '1px solid #1E2530', padding: '12px 16px',
-        }}>
+      {/* Прогресс-бар — только когда есть данные */}
+      {hasData && income > 0 && (
+        <div style={{ background: '#151B28', borderRadius: '12px', border: '1px solid #1E2530', padding: '12px 16px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span style={{ color: '#6B7280', fontSize: '0.75rem', fontWeight: '600' }}>
-              {t.bud_used}
-            </span>
+            <span style={{ color: '#6B7280', fontSize: '0.75rem', fontWeight: '600' }}>{t.bud_used}</span>
             <span style={{ color: surplus >= 0 ? '#68D391' : '#FC8181', fontSize: '0.75rem', fontWeight: '700' }}>
               {Math.min(Math.round((totalExpenses / income) * 100), 999)}%
             </span>
           </div>
           <div style={{ height: '6px', background: '#1E2530', borderRadius: '10px', overflow: 'hidden' }}>
-            <div style={{
-              height: '100%',
-              width: `${Math.min((totalExpenses / income) * 100, 100)}%`,
-              background: surplus >= 0
-                ? 'linear-gradient(90deg, #4FD1C5, #68D391)'
-                : 'linear-gradient(90deg, #F6AD55, #FC8181)',
-              borderRadius: '10px',
-              transition: 'width 0.4s ease',
-            }} />
+            <div style={{ height: '100%', width: `${Math.min((totalExpenses / income) * 100, 100)}%`, background: surplus >= 0 ? 'linear-gradient(90deg, #4FD1C5, #68D391)' : 'linear-gradient(90deg, #F6AD55, #FC8181)', borderRadius: '10px', transition: 'width 0.4s ease' }} />
           </div>
-          {/* Мини-полоски по категориям */}
           <div style={{ display: 'flex', gap: '4px', marginTop: '8px', flexWrap: 'wrap' }}>
             {budget.categories.map((cat, i) => {
               const catTotal = cat.items.reduce((s, item) => s + (Number(item.amount) || 0), 0);
@@ -352,50 +355,81 @@ export default function BudgetPlanner({ monthlyIncome }) {
         </div>
       )}
 
-      {/* Сетка категорий */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-        gap: '1rem',
-      }}>
-        {budget.categories.map((cat, idx) => (
-          <CategoryCard
-            key={cat.id}
-            cat={cat}
-            index={idx}
-            t={t}
-            onChange={(updated) => updateCategory(idx, updated)}
-            onDelete={() => deleteCategory(idx)}
-            onAddItem={() => updateCategory(idx, { ...cat, items: [...cat.items, { id: uid(), label: '', amount: 0 }] })}
-            onDeleteItem={(itemId) => updateCategory(idx, { ...cat, items: cat.items.filter(i => i.id !== itemId) })}
-          />
-        ))}
+      {/* Пустое состояние — нет данных из документа */}
+      {!hasData && (
+        <div style={{ background: '#151B28', border: '1px dashed #2D3748', borderRadius: '20px', padding: '3rem 2rem', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1rem' }}>
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2D3748" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>
+          </svg>
+          <div style={{ color: '#E2E8F0', fontWeight: '700', fontSize: '1rem' }}>
+            Загрузите документ бюджета
+          </div>
+          <div style={{ color: '#4A5568', fontSize: '0.82rem', maxWidth: '320px', lineHeight: '1.6' }}>
+            Загрузите PDF с Haushaltsbudget — категории и суммы появятся автоматически
+          </div>
+          <input ref={fileInputRef} type="file" accept=".pdf" style={{ display: 'none' }} onChange={handleUpload} />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            style={{ marginTop: '0.25rem', background: 'rgba(0,229,255,0.1)', border: '1px solid rgba(0,229,255,0.25)', borderRadius: '12px', color: '#00E5FF', fontSize: '0.85rem', fontWeight: '700', padding: '10px 22px', cursor: uploading ? 'default' : 'pointer', opacity: uploading ? 0.7 : 1, display: 'flex', alignItems: 'center', gap: '8px' }}
+          >
+            {uploading ? (
+              <><span style={{ display: 'inline-block', width: '14px', height: '14px', border: '2px solid rgba(0,229,255,0.3)', borderTopColor: '#00E5FF', borderRadius: '50%', animation: 'budSpin 0.7s linear infinite' }} />Загрузка...</>
+            ) : (
+              <><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>Загрузить документ</>
+            )}
+          </button>
+          {uploadError && <div style={{ color: '#FC8181', fontSize: '0.78rem' }}>{uploadError}</div>}
+          <style>{`@keyframes budSpin { to { transform: rotate(360deg); } }`}</style>
+        </div>
+      )}
 
-        {/* Кнопка добавить категорию */}
-        <button
-          onClick={addCategory}
-          style={{
-            background: 'transparent',
-            border: '1px dashed #1E2530',
-            borderRadius: '20px',
-            color: '#4A5568',
-            fontSize: '0.85rem',
-            fontWeight: '600',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: '8px',
-            minHeight: '120px',
-            transition: 'border-color 0.2s, color 0.2s',
+      {/* Сетка категорий — только когда есть данные */}
+      {hasData && (
+        <div style={{ columns: '280px', columnGap: '1rem' }}>
+          {budget.categories.map((cat, idx) => (
+            <CategoryCard
+              key={cat.id}
+              cat={cat}
+              index={idx}
+              t={t}
+              onChange={(updated) => updateCategory(idx, updated)}
+              onDelete={() => setPendingDelete({ type: 'category', idx, label: cat.label })}
+              onAddItem={() => updateCategory(idx, { ...cat, items: [...cat.items, { id: uid(), label: '', amount: 0 }] })}
+              onDeleteItem={(itemId, itemLabel) => setPendingDelete({ type: 'item', idx, itemId, label: itemLabel })}
+            />
+          ))}
+          <button
+            onClick={addCategory}
+            style={{ background: 'transparent', border: '1px dashed #1E2530', borderRadius: '20px', color: '#4A5568', fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', minHeight: '80px', width: '100%', breakInside: 'avoid', marginBottom: '1rem', transition: 'border-color 0.2s, color 0.2s' }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = '#00E5FF44'; e.currentTarget.style.color = '#00E5FF'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = '#1E2530'; e.currentTarget.style.color = '#4A5568'; }}
+          >
+            <span style={{ fontSize: '1.2rem' }}>+</span>
+            {t.bud_addCategory}
+          </button>
+        </div>
+      )}
+
+      {pendingDelete && (
+        <ConfirmModal
+          message={
+            pendingDelete.type === 'category'
+              ? `Категория «${pendingDelete.label}» и все её статьи будут удалены навсегда.`
+              : `Статья «${pendingDelete.label || 'без названия'}» будет удалена навсегда.`
+          }
+          onConfirm={() => {
+            if (pendingDelete.type === 'category') {
+              deleteCategory(pendingDelete.idx);
+            } else {
+              const cat = budget.categories[pendingDelete.idx];
+              updateCategory(pendingDelete.idx, { ...cat, items: cat.items.filter(i => i.id !== pendingDelete.itemId) });
+            }
+            setPendingDelete(null);
           }}
-          onMouseEnter={e => { e.currentTarget.style.borderColor = '#00E5FF44'; e.currentTarget.style.color = '#00E5FF'; }}
-          onMouseLeave={e => { e.currentTarget.style.borderColor = '#1E2530'; e.currentTarget.style.color = '#4A5568'; }}
-        >
-          <span style={{ fontSize: '1.2rem' }}>+</span>
-          {t.bud_addCategory}
-        </button>
-      </div>
+          onCancel={() => setPendingDelete(null)}
+        />
+      )}
     </div>
   );
 }

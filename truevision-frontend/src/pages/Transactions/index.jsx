@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import React, { useState, useEffect, useRef } from 'react';
+import ReactDOM from 'react-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import Skeleton from '../../components/Skeleton.jsx';
 import api, { cachedGet } from '../../api/client';
 import { useExport } from '../../hooks/useExport';
@@ -207,8 +208,155 @@ function AddTransactionModal({ onClose, onSaved }) {
   );
 }
 
+function ConfirmDeleteModal({ onConfirm, onCancel }) {
+  return ReactDOM.createPortal(
+    <div
+      style={{
+        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        zIndex: 10000,
+      }}
+      onMouseDown={onCancel}
+    >
+      <div
+        style={{
+          background: '#151B28', border: '1px solid #2D3748', borderRadius: '16px',
+          padding: '1.5rem 1.75rem', width: '100%', maxWidth: '360px',
+          boxShadow: '0 16px 48px rgba(0,0,0,0.6)',
+        }}
+        onMouseDown={e => e.stopPropagation()}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '0.75rem' }}>
+          <div style={{
+            width: '36px', height: '36px', borderRadius: '10px', flexShrink: 0,
+            background: 'rgba(252,129,129,0.12)', display: 'flex',
+            alignItems: 'center', justifyContent: 'center',
+          }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FC8181" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+            </svg>
+          </div>
+          <h3 style={{ margin: 0, color: '#E2E8F0', fontSize: '0.95rem', fontWeight: '700' }}>
+            Удалить транзакцию?
+          </h3>
+        </div>
+        <p style={{ margin: '0 0 1.25rem', color: '#6B7280', fontSize: '0.82rem', lineHeight: '1.5' }}>
+          Это действие нельзя отменить. Транзакция будет удалена навсегда.
+        </p>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button
+            onClick={onCancel}
+            style={{
+              flex: 1, padding: '9px', background: 'transparent',
+              border: '1px solid #2D3748', borderRadius: '10px',
+              color: '#6B7280', fontSize: '0.85rem', fontWeight: '600', cursor: 'pointer',
+            }}
+          >
+            Отмена
+          </button>
+          <button
+            onClick={onConfirm}
+            style={{
+              flex: 1, padding: '9px', background: '#FC8181',
+              border: 'none', borderRadius: '10px',
+              color: '#0B0F17', fontSize: '0.85rem', fontWeight: '700', cursor: 'pointer',
+            }}
+          >
+            Удалить
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+function ThreeDotsMenu({ onDelete }) {
+  const [open, setOpen] = useState(false);
+  const [confirm, setConfirm] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
+  const btnRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => {
+      if (btnRef.current && !btnRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const handleOpen = (e) => {
+    e.stopPropagation();
+    if (!open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setPos({
+        top: rect.bottom + window.scrollY + 4,
+        left: rect.right + window.scrollX - 140,
+      });
+    }
+    setOpen(o => !o);
+  };
+
+  const dropdown = open && ReactDOM.createPortal(
+    <div style={{
+      position: 'absolute', top: pos.top, left: pos.left, zIndex: 9999,
+      background: '#1A2232', border: '1px solid #2D3748', borderRadius: '10px',
+      padding: '4px', minWidth: '130px', boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+    }}>
+      <button
+        onMouseDown={e => e.stopPropagation()}
+        onClick={e => { e.stopPropagation(); setOpen(false); setConfirm(true); }}
+        style={{
+          width: '100%', background: 'none', border: 'none', cursor: 'pointer',
+          color: '#FC8181', fontSize: '0.82rem', fontWeight: '600',
+          padding: '8px 12px', borderRadius: '7px', textAlign: 'left',
+          display: 'flex', alignItems: 'center', gap: '8px',
+        }}
+        onMouseEnter={e => e.currentTarget.style.background = 'rgba(252,129,129,0.1)'}
+        onMouseLeave={e => e.currentTarget.style.background = 'none'}
+      >
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+        </svg>
+        Удалить
+      </button>
+    </div>,
+    document.body
+  );
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <button
+        ref={btnRef}
+        onClick={handleOpen}
+        style={{
+          background: 'none', border: 'none', cursor: 'pointer',
+          color: '#4A5568', padding: '4px 6px', borderRadius: '6px',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          transition: 'color 0.15s, background 0.15s',
+          fontSize: '1.1rem', lineHeight: 1, letterSpacing: '1px',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.color = '#E2E8F0'; e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; }}
+        onMouseLeave={e => { e.currentTarget.style.color = '#4A5568'; e.currentTarget.style.background = 'none'; }}
+        title="Действия"
+      >
+        ···
+      </button>
+      {dropdown}
+      {confirm && (
+        <ConfirmDeleteModal
+          onConfirm={() => { setConfirm(false); onDelete(); }}
+          onCancel={() => setConfirm(false)}
+        />
+      )}
+    </div>
+  );
+}
+
 export default function Transactions() {
   const t = useT();
+  const navigate = useNavigate();
   const PERIODS = { week: t.week, month: t.month, year: t.year, all: t.allTime };
   const [searchParams] = useSearchParams();
   const [period,    setPeriod]    = useState('month');
@@ -219,6 +367,7 @@ export default function Transactions() {
   const [minAmount, setMinAmount] = useState('');
   const [maxAmount, setMaxAmount] = useState('');
   const [showModal, setShowModal] = useState(false);
+  const [expanded,  setExpanded]  = useState(false);
   const { download, loading: exportLoading } = useExport();
 
   const loadData = () => {
@@ -230,6 +379,15 @@ export default function Transactions() {
   };
 
   useEffect(() => { loadData(); }, [period]);
+
+  const deleteTransaction = async (id) => {
+    setData(prev => ({ ...prev, items: prev.items.filter(i => i.id !== id), total: prev.total - 1 }));
+    try {
+      await api.delete(`/dashboard/transactions/${id}`);
+    } catch {
+      loadData();
+    }
+  };
 
   const toggleRecurring = async (id, current) => {
     setData(prev => ({
@@ -255,7 +413,14 @@ export default function Transactions() {
   });
 
   const hasActiveFilters = search || category !== 'all' || minAmount !== '' || maxAmount !== '';
-  const resetFilters = () => { setSearch(''); setCategory('all'); setMinAmount(''); setMaxAmount(''); };
+  const resetFilters = () => { setSearch(''); setCategory('all'); setMinAmount(''); setMaxAmount(''); setExpanded(false); };
+
+  // Сбрасываем раскрытие при смене фильтров/периода
+  useEffect(() => { setExpanded(false); }, [period, category, search, minAmount, maxAmount]);
+
+  const VISIBLE_COUNT = 4;
+  const visibleItems = expanded ? filteredItems : filteredItems.slice(0, VISIBLE_COUNT);
+  const hiddenCount  = filteredItems.length - VISIBLE_COUNT;
 
   const totalIncome  = filteredItems.filter(i => isIncomeCat(i.category)).reduce((s, i) => s + i.amount, 0);
   const totalExpense = filteredItems.filter(i => !isIncomeCat(i.category)).reduce((s, i) => s + i.amount, 0);
@@ -392,13 +557,6 @@ export default function Transactions() {
         )}
       </div>
 
-      {/* Сводка */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '1.25rem' }}>
-        <SummaryCard label={t.tr_totalIncome}   value={totalIncome}   color="#68D391" />
-        <SummaryCard label={t.tr_totalExpenses} value={-totalExpense}  color="#FC8181" />
-        <SummaryCard label={t.tr_totalNet}      value={totalNet}       color={totalNet >= 0 ? '#68D391' : '#FC8181'} />
-      </div>
-
       {/* Подсказка */}
       <div style={{
         background: 'rgba(0,229,255,0.04)', border: '1px solid rgba(0,229,255,0.08)',
@@ -416,7 +574,7 @@ export default function Transactions() {
         {/* Шапка */}
         <div style={{
           display: 'grid',
-          gridTemplateColumns: '100px 1fr 130px 110px 140px',
+          gridTemplateColumns: '100px 1fr 130px 110px 140px 32px',
           gap: '12px', padding: '0.7rem 1.25rem',
           borderBottom: '1px solid #1E2530',
           color: '#4A5568', fontSize: '0.68rem', fontWeight: '700',
@@ -431,11 +589,12 @@ export default function Transactions() {
             <span title={t.tr_recurringLabel} style={{ marginLeft: '4px', cursor: 'help', opacity: 0.5 }}>ℹ</span>
           </span>
           <span style={{ textAlign: 'right' }}>{t.tr_colAmount}</span>
+          <span />
         </div>
 
         {/* Состояния */}
         {loading && Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} style={{ display: 'grid', gridTemplateColumns: '100px 1fr 130px 110px 140px', gap: '12px', padding: '0.85rem 1.25rem', borderBottom: '1px solid #1E2530', alignItems: 'center' }}>
+          <div key={i} style={{ display: 'grid', gridTemplateColumns: '100px 1fr 130px 110px 140px 32px', gap: '12px', padding: '0.85rem 1.25rem', borderBottom: '1px solid #1E2530', alignItems: 'center' }}>
             <Skeleton width="70px" height="12px" />
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <Skeleton width="30px" height="30px" radius="50%" style={{ flexShrink: 0 }} />
@@ -444,27 +603,40 @@ export default function Transactions() {
             <Skeleton width="80px" height="22px" radius="20px" />
             <Skeleton width="50px" height="22px" radius="20px" style={{ margin: '0 auto' }} />
             <Skeleton width="90px" height="12px" style={{ marginLeft: 'auto' }} />
+            <div />
           </div>
         ))}
 
         {!loading && filteredItems.length === 0 && (
           <div style={{ padding: '3rem', textAlign: 'center' }}>
             <div style={{ color: '#4A5568', fontSize: '2rem', marginBottom: '12px' }}>📭</div>
-            <div style={{ color: '#4A5568', fontSize: '0.85rem' }}>
+            <div style={{ color: '#4A5568', fontSize: '0.85rem', marginBottom: hasActiveFilters ? 0 : '1rem' }}>
               {hasActiveFilters ? t.tr_noResults : t.tr_noPeriod}
             </div>
+            {!hasActiveFilters && (
+              <button
+                onClick={() => navigate('/documents')}
+                style={{
+                  marginTop: '4px', background: '#00E5FF', border: 'none',
+                  borderRadius: '10px', color: '#0B0F17', fontSize: '0.82rem',
+                  fontWeight: '700', padding: '8px 18px', cursor: 'pointer',
+                }}
+              >
+                Загрузить документ
+              </button>
+            )}
           </div>
         )}
 
         {/* Строки */}
-        {!loading && filteredItems.map((item, idx) => (
+        {!loading && visibleItems.map((item, idx) => (
           <div
             key={item.id}
             style={{
               display: 'grid',
-              gridTemplateColumns: '100px 1fr 130px 110px 140px',
+              gridTemplateColumns: '100px 1fr 130px 110px 140px 32px',
               gap: '12px', padding: '0.85rem 1.25rem',
-              borderBottom: idx < filteredItems.length - 1 ? '1px solid #1E2530' : 'none',
+              borderBottom: idx < visibleItems.length - 1 || (!expanded && hiddenCount > 0) ? '1px solid #1E2530' : 'none',
               alignItems: 'center', transition: 'background 0.15s',
               overflowX: 'auto',
             }}
@@ -501,8 +673,52 @@ export default function Transactions() {
             <div style={{ textAlign: 'right' }}>
               <AmountCell amount={item.amount} category={item.category} />
             </div>
+
+            <ThreeDotsMenu onDelete={() => deleteTransaction(item.id)} />
           </div>
         ))}
+
+        {/* Кнопка раскрытия */}
+        {!loading && !expanded && hiddenCount > 0 && (
+          <button
+            onClick={() => setExpanded(true)}
+            style={{
+              width: '100%', padding: '0.75rem',
+              background: 'transparent', border: 'none',
+              color: '#4A5568', fontSize: '0.8rem', fontWeight: '600',
+              cursor: 'pointer', display: 'flex', alignItems: 'center',
+              justifyContent: 'center', gap: '6px',
+              transition: 'color 0.2s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = '#00E5FF'}
+            onMouseLeave={e => e.currentTarget.style.color = '#4A5568'}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <polyline points="6 9 12 15 18 9"/>
+            </svg>
+            Показать ещё {hiddenCount}
+          </button>
+        )}
+        {!loading && expanded && filteredItems.length > VISIBLE_COUNT && (
+          <button
+            onClick={() => setExpanded(false)}
+            style={{
+              width: '100%', padding: '0.75rem',
+              background: 'transparent', border: 'none',
+              color: '#4A5568', fontSize: '0.8rem', fontWeight: '600',
+              cursor: 'pointer', display: 'flex', alignItems: 'center',
+              justifyContent: 'center', gap: '6px',
+              transition: 'color 0.2s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = '#00E5FF'}
+            onMouseLeave={e => e.currentTarget.style.color = '#4A5568'}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+              <polyline points="18 15 12 9 6 15"/>
+            </svg>
+            Свернуть
+          </button>
+        )}
       </div>
 
       {data.total > 0 && (

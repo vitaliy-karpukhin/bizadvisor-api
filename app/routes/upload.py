@@ -8,11 +8,48 @@ from app.models.document import Document
 from app.models.user import User
 from app.config import SECRET_KEY, ALGORITHM
 from jose import jwt, JWTError
-import os, shutil, uuid, logging, json, hashlib
+import os, shutil, uuid, logging, json, hashlib, io
 from werkzeug.utils import secure_filename
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
+
+_FINANCIAL_SIGNALS = [
+    # суммы и валюта
+    "€", "eur", "betrag", "summe", "gesamt", "netto", "brutto",
+    # немецкие документы
+    "rechnung", "quittung", "kontoauszug", "lohnabrechnung",
+    "gehaltsabrechnung", "haushaltsbudget", "haushaltsnettoinkommen",
+    "steuer", "mwst", "mehrwertsteuer",
+    # банк/страховка DE
+    "iban", "bic", "konto", "überweisung", "lastschrift",
+    "versicherung", "police", "prämie",
+    # бизнес DE
+    "lieferant", "kunde", "auftrag", "zahlungsziel", "fälligkeit",
+    "buchung", "transaktion", "einnahme", "ausgabe",
+    # English
+    "invoice", "receipt", "payment", "amount", "total", "expense",
+    "income", "revenue", "tax", "vat", "salary", "payroll",
+    "bank statement", "account", "transaction", "balance",
+    "insurance", "premium", "vendor", "budget",
+]
+
+def _is_financial_pdf(file_bytes: bytes) -> bool:
+    try:
+        import pdfplumber
+        with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
+            text = ""
+            for page in pdf.pages[:3]:
+                text += (page.extract_text() or "")
+                if len(text) > 3000:
+                    break
+        if len(text.strip()) < 50:
+            return True  # скан или изображение — не блокируем
+        tl = text.lower()
+        return sum(1 for kw in _FINANCIAL_SIGNALS if kw in tl) >= 2
+    except Exception:
+        return True  # если не удалось прочитать — не блокируем
+
 router = APIRouter()
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "uploads")
 
@@ -49,6 +86,13 @@ def upload_file(
     file_bytes = file.file.read()
     file_hash = hashlib.sha256(file_bytes).hexdigest()
 
+    # Проверка финансового контента
+    if filename.lower().endswith(".pdf") and not _is_financial_pdf(file_bytes):
+        raise HTTPException(
+            status_code=422,
+            detail="Документ не является финансовым. Принимаются только счета, бюджеты, выписки и аналогичные документы.",
+        )
+
     # Проверка дубликата по хэшу содержимого
     existing = db.query(Document).filter(
         Document.owner_id == user["id"],
@@ -81,7 +125,24 @@ def upload_file(
     db.add(doc)
     db.commit()
     db.refresh(doc)
-    return {"ok": True, "id": doc.id, "filename": filename}
+
+    # Авто-анализ сразу после загрузки
+    try:
+        from app.services.document_processor import process_document
+        process_document(doc, db)
+        doc.status = "analyzed"
+        db.commit()
+        db.refresh(doc)
+    except Exception as e:
+        logger.warning(f"Auto-analysis failed for doc {doc.id}: {e}")
+
+    return {
+        "ok": True,
+        "id": doc.id,
+        "filename": filename,
+        "status": doc.status,
+        "extraction_result": doc.extraction_result or {},
+    }
 
 
 @router.get("", response_model=List[dict])

@@ -48,6 +48,7 @@ class CompanyUpdate(BaseModel):
     name: Optional[str] = None
     position: Optional[str] = None
     tax_id: Optional[str] = None
+    iban: Optional[str] = None
 
 
 class UserUpdate(BaseModel):
@@ -57,6 +58,11 @@ class UserUpdate(BaseModel):
     avatar_url: Optional[str] = None
     path: Optional[str] = None
     company: Optional[CompanyUpdate] = None
+
+
+class PasswordChangeSchema(BaseModel):
+    current_password: str
+    new_password: str
 
 
 # --- ЭНДПОИНТЫ ---
@@ -159,6 +165,7 @@ def update_user(
                     name=data.company.name,
                     position=data.company.position,
                     tax_id=data.company.tax_id,
+                    iban=data.company.iban,
                     owner_id=current_user.id
                 )
                 db.add(new_comp)
@@ -166,6 +173,8 @@ def update_user(
                 if data.company.name is not None: current_user.company.name = data.company.name
                 if data.company.position is not None: current_user.company.position = data.company.position
                 if data.company.tax_id is not None: current_user.company.tax_id = data.company.tax_id
+                if data.company.iban is not None: current_user.company.iban = data.company.iban
+                current_user.company.owner_id = current_user.id
 
         db.commit()
         db.refresh(current_user)
@@ -206,6 +215,56 @@ async def upload_avatar(
 
     db.commit()
     return {"avatar_url": avatar_url}
+
+
+@router.post("/change-password")
+def change_password(
+        data: PasswordChangeSchema,
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user),
+):
+    if not verify_password(data.current_password[:MAX_BCRYPT_LENGTH], current_user.password):
+        raise HTTPException(status_code=400, detail="Неверный текущий пароль")
+    if len(data.new_password) < 6:
+        raise HTTPException(status_code=400, detail="Новый пароль должен быть не менее 6 символов")
+    current_user.password = hash_password(data.new_password)
+    db.commit()
+    return {"ok": True}
+
+
+@router.get("/stats")
+def get_stats(
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user),
+):
+    from app.models.document import Document
+    from app.models.financial_event import FinancialEvent
+    docs_count = db.query(Document).filter(Document.owner_id == current_user.id).count()
+    tx_count = db.query(FinancialEvent).filter(FinancialEvent.user_id == current_user.id).count()
+    return {
+        "documents": docs_count,
+        "transactions": tx_count,
+        "member_since": current_user.created_at.isoformat() if current_user.created_at else None,
+    }
+
+
+@router.delete("/delete-account")
+def delete_account(
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_user),
+):
+    from app.models.document import Document
+    from app.models.financial_event import FinancialEvent
+    from app.models.budget import Budget
+    db.query(FinancialEvent).filter(FinancialEvent.user_id == current_user.id).delete()
+    db.query(Budget).filter(Budget.user_id == current_user.id).delete()
+    for doc in db.query(Document).filter(Document.owner_id == current_user.id).all():
+        if doc.file_path and os.path.exists(doc.file_path):
+            os.remove(doc.file_path)
+        db.delete(doc)
+    db.delete(current_user)
+    db.commit()
+    return {"ok": True}
 
 
 @router.get("/verify")

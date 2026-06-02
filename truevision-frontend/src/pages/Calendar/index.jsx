@@ -127,7 +127,7 @@ export default function Calendar() {
       <div style={{ background: '#151B28', border: '1px solid #1E2530', borderRadius: '16px', overflow: 'hidden' }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', borderBottom: '1px solid #1E2530' }}>
           {t.cal_days.map(d => (
-            <div key={d} style={{ padding: '10px 0', textAlign: 'center', color: '#4A5568', fontSize: '0.72rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{d}</div>
+            <div key={d} style={{ padding: '6px 0', textAlign: 'center', color: '#4A5568', fontSize: '0.65rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{d}</div>
           ))}
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)' }}>
@@ -138,20 +138,20 @@ export default function Calendar() {
             const dots       = day ? (dayMap[day] || []) : [];
             return (
               <div key={i} className="cal-cell" onClick={() => day && setSelected(isSelected ? null : day)}
-                style={{ borderRight: (i + 1) % 7 !== 0 ? '1px solid #1E2530' : 'none', borderBottom: i < cells.length - 7 ? '1px solid #1E2530' : 'none', background: isSelected ? 'rgba(0,229,255,0.07)' : 'transparent', cursor: hasEvents ? 'pointer' : 'default', transition: 'background 0.15s' }}
+                style={{ borderRight: (i + 1) % 7 !== 0 ? '1px solid #1E2530' : 'none', borderBottom: i < cells.length - 7 ? '1px solid #1E2530' : 'none', background: isSelected ? 'rgba(0,229,255,0.07)' : 'transparent', cursor: hasEvents ? 'pointer' : 'default', transition: 'background 0.15s', padding: '6px 6px 5px', minHeight: '44px' }}
                 onMouseEnter={e => { if (hasEvents) e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = isSelected ? 'rgba(0,229,255,0.07)' : 'transparent'; }}
               >
                 {day && (
                   <>
-                    <div style={{ width: '28px', height: '28px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isToday ? '#00E5FF' : 'transparent', color: isToday ? '#0B0F17' : '#E2E8F0', fontSize: '0.82rem', fontWeight: isToday ? '800' : '500' }}>
+                    <div style={{ width: '22px', height: '22px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: isToday ? '#00E5FF' : 'transparent', color: isToday ? '#0B0F17' : '#E2E8F0', fontSize: '0.75rem', fontWeight: isToday ? '800' : '500' }}>
                       {day}
                     </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '3px', marginTop: '4px' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '2px', marginTop: '3px' }}>
                       {dots.slice(0, 3).map((ev, j) => (
-                        <div key={j} style={{ width: '6px', height: '6px', borderRadius: '50%', background: CAT_COLORS[ev.category] || '#6B7280', flexShrink: 0 }} />
+                        <div key={j} style={{ width: '5px', height: '5px', borderRadius: '50%', background: CAT_COLORS[ev.category] || '#6B7280', flexShrink: 0 }} />
                       ))}
-                      {dots.length > 3 && <span style={{ color: '#4A5568', fontSize: '0.6rem', lineHeight: '6px' }}>+{dots.length - 3}</span>}
+                      {dots.length > 3 && <span style={{ color: '#4A5568', fontSize: '0.55rem', lineHeight: '5px' }}>+{dots.length - 3}</span>}
                     </div>
                   </>
                 )}

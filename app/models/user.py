@@ -54,7 +54,8 @@ class User(Base):
             data["company"] = {
                 "name": self.company.name or "",
                 "position": self.company.position or "",
-                "tax_id": self.company.tax_id or ""
+                "tax_id": self.company.tax_id or "",
+                "iban": self.company.iban or ""
             }
 
         return data

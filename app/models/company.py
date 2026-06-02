@@ -13,7 +13,8 @@ class Company(Base):
     # Основные данные
     name = Column(String, nullable=False)
     position = Column(String, nullable=True)  # Добавлено
-    tax_id = Column(String, nullable=True)  # ДОБАВЬ ЭТО (ИНН/Регистрация)
+    tax_id = Column(String, nullable=True)
+    iban   = Column(String, nullable=True)
     industry = Column(String, nullable=True)
     employees = Column(Integer, nullable=True)
 

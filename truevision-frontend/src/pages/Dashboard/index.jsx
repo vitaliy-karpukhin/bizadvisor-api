@@ -95,6 +95,49 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* ── Онбординг ── */}
+      {!loading && metrics.documents_analyzed === 0 && (
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(0,229,255,0.05), rgba(124,58,237,0.05))',
+          border: '1px solid rgba(0,229,255,0.15)',
+          borderRadius: '20px', padding: '1.5rem', marginBottom: '1.5rem',
+        }}>
+          <div style={{ color: '#00E5FF', fontWeight: '800', fontSize: '1rem', marginBottom: '4px' }}>
+            👋 Добро пожаловать в TrueVision
+          </div>
+          <div style={{ color: '#6B7280', fontSize: '0.8rem', marginBottom: '1.25rem' }}>
+            Начни за 3 шага, чтобы увидеть твою финансовую картину
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px' }}>
+            {[
+              { step: '1', icon: '📄', title: 'Загрузи документ', desc: 'PDF счёта, выписки или отчёта', btn: 'Открыть документы', action: () => navigate('/documents') },
+              { step: '2', icon: '🤖', title: 'Проанализируй', desc: 'AI извлечёт суммы и транзакции', btn: null },
+              { step: '3', icon: '📊', title: 'Смотри статистику', desc: 'Графики и бюджет появятся здесь', btn: null },
+            ].map(({ step, icon, title, desc, btn, action }) => (
+              <div key={step} style={{
+                background: 'rgba(255,255,255,0.03)', borderRadius: '14px',
+                padding: '1rem', border: '1px solid rgba(255,255,255,0.05)',
+                display: 'flex', flexDirection: 'column', gap: '4px',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                  <span style={{ fontSize: '1.1rem' }}>{icon}</span>
+                  <span style={{ color: '#00E5FF', fontSize: '0.65rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Шаг {step}</span>
+                </div>
+                <div style={{ color: '#E2E8F0', fontSize: '0.85rem', fontWeight: '700' }}>{title}</div>
+                <div style={{ color: '#4A5568', fontSize: '0.75rem', flex: 1 }}>{desc}</div>
+                {btn && (
+                  <button onClick={action} style={{
+                    marginTop: '10px', background: '#00E5FF', border: 'none',
+                    borderRadius: '8px', color: '#0B0F17', fontSize: '0.75rem',
+                    fontWeight: '700', padding: '7px 14px', cursor: 'pointer', alignSelf: 'flex-start',
+                  }}>{btn}</button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="stats-grid" style={{ marginBottom: '1.25rem' }}>
         {loading ? Array.from({ length: 4 }).map((_, i) => (
           <SkeletonCard key={i}>
