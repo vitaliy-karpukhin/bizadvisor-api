@@ -252,18 +252,13 @@ export default function BudgetPlanner() {
       const form = new FormData();
       form.append('file', file);
       const res = await api.post('/documents/upload', form, { headers: { 'Content-Type': 'multipart/form-data' } });
-      const er = res.data?.extraction_result;
-      if (er?.doc_type === 'haushaltsbudget') {
-        loadBudget();
-      } else if (res.data?.duplicate) {
-        await api.post(`/budget/import/${res.data.existing_id}`);
-        loadBudget();
-      } else {
-        setUploadError('Документ не распознан как Haushaltsbudget.');
-      }
+      const docId = res.data?.id || res.data?.existing_id;
+      if (!docId) { setUploadError('Ошибка загрузки.'); return; }
+      await api.post(`/budget/import/${docId}`);
+      loadBudget();
     } catch (err) {
       const msg = err?.response?.data?.detail;
-      setUploadError(msg || 'Ошибка загрузки. Попробуйте ещё раз.');
+      setUploadError(msg || 'Документ не распознан как Haushaltsbudget.');
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = '';

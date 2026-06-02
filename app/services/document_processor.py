@@ -54,6 +54,7 @@ def process_document(document: Document, db: Session):
         BUDGET_SIGNALS = [
             "haushaltsbudget", "haushaltsnettoeinkommen", "überschuss",
             "ist-/soll-vergleich", "finanzplanung", "schutzbudget",
+            "schutzengel", "neuer ausgabentyp", "wohnen", "sparen",
         ]
         text_lower = (extracted_text or "").lower()
         is_budget_doc = any(sig in text_lower for sig in BUDGET_SIGNALS)
