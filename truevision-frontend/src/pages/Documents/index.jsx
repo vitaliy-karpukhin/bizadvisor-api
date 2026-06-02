@@ -33,12 +33,12 @@ function DocCard({ doc, onView, onDelete }) {
           {doc.created_at && <span>{new Date(doc.created_at).toLocaleDateString('de-DE')}</span>}
           <span style={{ color: '#2D3748' }}>·</span>
           <span style={s.badge(doc.status)}>{t[`doc_status_${doc.status}`] || STATUS_LABELS[doc.status] || doc.status}</span>
-          {doc.status === 'analyzed' && doc.extraction_result?.doc_type === 'haushaltsbudget' && (
+          {doc.status === 'analyzed' && (doc.doc_type || doc.extraction_result?.doc_type) === 'haushaltsbudget' && (
             <span style={{ padding: '2px 8px', borderRadius: '20px', fontSize: '0.68rem', fontWeight: '600', background: 'rgba(0,229,255,0.1)', color: '#00E5FF', whiteSpace: 'nowrap' }}>
               📊 Бюджет
             </span>
           )}
-          {doc.status === 'analyzed' && doc.payment_status && doc.extraction_result?.doc_type !== 'haushaltsbudget' && (
+          {doc.status === 'analyzed' && doc.payment_status && (doc.doc_type || doc.extraction_result?.doc_type) !== 'haushaltsbudget' && (
             <span style={{ padding: '2px 8px', borderRadius: '20px', fontSize: '0.68rem', fontWeight: '600', background: `${paymentColor}20`, color: paymentColor, whiteSpace: 'nowrap' }}>
               {t[`doc_pay_${doc.payment_status}`] || PAYMENT_LABELS[doc.payment_status] || doc.payment_status}
             </span>

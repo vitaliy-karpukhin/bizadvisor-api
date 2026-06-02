@@ -170,7 +170,7 @@ def list_documents(
             "file_size": d.file_size,
             "project_id": d.project_id,
             "created_at": d.created_at.isoformat() if d.created_at else None,
-            "extraction_result": d.extraction_result or {},
+            "doc_type": (d.extraction_result or {}).get("doc_type", "financial"),
             "payment_status": d.payment_status or "pending",
             "events_count": counts.get(d.id, 0),
         }
