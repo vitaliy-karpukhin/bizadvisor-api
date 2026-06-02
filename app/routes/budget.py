@@ -722,15 +722,17 @@ def import_budget_from_document(
 
     budget_data = None
 
-    if is_visual_budget:
-        # Multi-column budget — crop page into columns, parse each independently
-        logger.info("Visual budget → column crop parser")
-        budget_data = _extract_budget_by_columns(doc.file_path)
-
-    if not budget_data and is_visual_budget:
-        # Image-based or column parser returned nothing → Claude Vision
-        logger.info("Visual budget (image) → Claude Vision")
+    if not text.strip():
+        # Image-based PDF (no extractable text) → Claude Vision directly
+        logger.info("Image PDF → Claude Vision")
         budget_data = _vision_extract_budget(doc.file_path)
+    elif is_visual_budget:
+        # Text-based multi-column budget → column crop parser
+        logger.info("Text budget → column crop parser")
+        budget_data = _extract_budget_by_columns(doc.file_path)
+        if not budget_data:
+            logger.info("Column parser empty → Claude Vision fallback")
+            budget_data = _vision_extract_budget(doc.file_path)
 
     if not budget_data and text.strip():
         logger.info("Falling back to regex parser")
