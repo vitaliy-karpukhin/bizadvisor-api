@@ -564,69 +564,68 @@ def _fix_label(label: str) -> str:
     return label.rstrip(".")
 
 
-def _extract_budget_by_columns(text: str) -> dict | None:
-    """Parse text-based Haushaltsbudget by splitting on column headers."""
-    AMOUNT_RE = re.compile(r'([\d]{1,3}(?:[\. ]?\d{3})*,\d{2})\s*€')
+def _extract_budget_by_columns(file_path: str) -> dict | None:
+    """Crop PDF page into 4 columns, parse each independently."""
+    COL_META = [
+        ("Schutzengel",    "insurance", "#C8922A"),
+        ("Wohnen",         "housing",   "#C0392B"),
+        ("Leben / Konsum", "living",    "#D4820A"),
+        ("Sparen",         "savings",   "#2D8A4E"),
+    ]
     ITEM_RE = re.compile(
-        r'[v✓]\s+\(\d+\)\s+(.+?)\s+([\d]{1,3}(?:[\. ]?\d{3})*,\d{2})\s*€'
+        r'(?:[v✓vV]\s*)?\(\d+\)\s+(.+?)\s+([\d]{1,3}(?:[\.\s]?\d{3})*,\d{2})\s*€'
     )
 
-    buckets: list[list[dict]] = [[], [], [], []]
-    current_col = -1
-    item_counters = [0, 0, 0, 0]
+    try:
+        import pdfplumber
+        with pdfplumber.open(file_path) as pdf:
+            page = pdf.pages[0]
+            w, h = page.width, page.height
 
-    for raw_line in text.split('\n'):
-        line = raw_line.strip()
-        ll = line.lower()
+            # Auto-detect column count from header line
+            # Default: 4 equal columns
+            n_cols = 4
+            col_w = w / n_cols
 
-        if not line:
-            continue
+            col_texts = []
+            for i in range(n_cols):
+                crop = page.crop((i * col_w, 0, (i + 1) * col_w, h))
+                col_texts.append(crop.extract_text() or "")
 
-        # Skip summary/footer lines
-        if any(s in ll for s in _SKIP_LINES):
-            continue
-        if re.match(r'^\d+%', line):
-            continue
+    except Exception as e:
+        logger.warning(f"Column crop failed: {e}")
+        return None
 
-        # Detect column header
-        for key, idx in _HEADER_KEYS.items():
-            if key in ll and len(line) < 25 and not AMOUNT_RE.search(line):
-                current_col = idx
-                break
-        else:
-            # Extract item line: "v (1) Label  20,00 €"
-            if current_col >= 0:
-                m = ITEM_RE.search(line)
-                if m:
-                    label = _fix_label(m.group(1).strip())
-                    amount = _parse_amount(m.group(2))
-                    if amount > 0 and len(label) >= 2:
-                        item_counters[current_col] += 1
-                        buckets[current_col].append({
-                            "id": f"{_COL_IDS[current_col]}_{item_counters[current_col]}",
-                            "label": label,
-                            "amount": amount,
-                        })
-
-    # Build categories — only those with items
     categories = []
-    col_labels = ["Schutzengel", "Wohnen", "Leben / Konsum", "Sparen"]
+    for i, col_text in enumerate(col_texts):
+        if i >= len(COL_META):
+            break
+        label, cat_id, color = COL_META[i]
 
-    # Try to get exact label from text
-    for i, items in enumerate(buckets):
-        if not items:
-            continue
-        categories.append({
-            "id": _COL_IDS[i],
-            "label": col_labels[i],
-            "color": _COL_COLORS_LIST[i],
-            "items": items,
-        })
+        items = []
+        for m in ITEM_RE.finditer(col_text):
+            raw = re.sub(r'\.{2,}$', '', m.group(1).strip())
+            fixed = _fix_label(raw)
+            amount = _parse_amount(m.group(2))
+            if amount > 0 and len(fixed) >= 2:
+                items.append({
+                    "id": f"{cat_id}_{len(items) + 1}",
+                    "label": fixed,
+                    "amount": amount,
+                })
+
+        if items:
+            categories.append({
+                "id": cat_id,
+                "label": label,
+                "color": color,
+                "items": items,
+            })
 
     if not categories:
         return None
 
-    logger.info(f"Column parser: {len(categories)} cats, {sum(len(c['items']) for c in categories)} items")
+    logger.info(f"Column crop parser: {len(categories)} cats, {sum(len(c['items']) for c in categories)} items")
     return {"income": 0, "categories": categories}
 
 
@@ -723,10 +722,10 @@ def import_budget_from_document(
 
     budget_data = None
 
-    if is_visual_budget and text.strip():
-        # Text-based multi-column budget — column parser preserves structure perfectly
-        logger.info("Visual budget (text) → column parser")
-        budget_data = _extract_budget_by_columns(text)
+    if is_visual_budget:
+        # Multi-column budget — crop page into columns, parse each independently
+        logger.info("Visual budget → column crop parser")
+        budget_data = _extract_budget_by_columns(doc.file_path)
 
     if not budget_data and is_visual_budget:
         # Image-based or column parser returned nothing → Claude Vision
