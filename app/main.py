@@ -1,9 +1,11 @@
 import os
 import logging
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.openapi.utils import get_openapi
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 # Database
 from app.db.database import engine, Base
@@ -178,3 +180,18 @@ def root():
 @app.get("/api/health", tags=["Root"])
 def health():
     return {"status": "ok"}
+
+# Serve React SPA — must be registered AFTER all API routes
+_DIST = Path("truevision-frontend/dist")
+
+if _DIST.exists():
+    app.mount("/assets", StaticFiles(directory=str(_DIST / "assets")), name="spa-assets")
+
+@app.get("/{full_path:path}", include_in_schema=False)
+async def serve_spa(full_path: str):
+    if not _DIST.exists():
+        return {"detail": "frontend not built"}
+    file = _DIST / full_path
+    if file.is_file():
+        return FileResponse(file)
+    return FileResponse(_DIST / "index.html")

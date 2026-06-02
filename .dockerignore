@@ -7,7 +7,7 @@ __pycache__/
 .git/
 .gitignore
 uploads/
-truevision-frontend/
+truevision-frontend/node_modules/
 node_modules/
 *.md
 .DS_Store
