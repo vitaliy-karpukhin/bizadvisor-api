@@ -2,7 +2,7 @@
 FROM node:20-slim AS frontend
 WORKDIR /frontend
 COPY truevision-frontend/package*.json ./
-RUN npm ci
+RUN npm install
 COPY truevision-frontend/ ./
 RUN npm run build
 
